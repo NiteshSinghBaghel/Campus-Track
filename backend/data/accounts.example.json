@@ -1,0 +1,16 @@
+[
+  {
+    "id": "acc-demo-example",
+    "userId": "user-default",
+    "studentName": "Demo Student",
+    "prn": "26015060000",
+    "email": "student@dypiu.ac.in",
+    "program": "School of Computer Science Engineering and Applications MCA",
+    "semester": "SEM -1",
+    "isPrimary": true,
+    "connectionStatus": "CONNECTED",
+    "lastSyncedAt": "2026-11-04T12:00:00.000Z",
+    "attendancePercentage": 75.0,
+    "encryptedUsername": ""
+  }
+]
