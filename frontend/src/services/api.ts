@@ -5,7 +5,11 @@ import {
   GroupAttendanceBatchResponse
 } from '../types/index.js';
 
-const API_BASE = '/api';
+// In production, VITE_API_BASE_URL points to Render backend (e.g. https://campus-track-backend.onrender.com)
+// In local dev, we use the Vite proxy at /api -> http://127.0.0.1:5005
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api`
+  : '/api';
 
 /**
  * Robust fetch wrapper that gracefully handles:
@@ -19,7 +23,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     res = await fetch(url, options);
   } catch (err: any) {
     throw new Error(
-      'Backend server is not reachable. Please ensure the backend is running on port 5005.'
+      'Backend server is not reachable. Please try again later.'
     );
   }
 

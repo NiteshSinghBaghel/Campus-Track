@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: campus-track-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5005"
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: ENCRYPTION_KEY
+        sync: false   # Set this manually in Render dashboard (must be 32+ chars)
+      - key: JWT_SECRET
+        sync: false   # Set this manually in Render dashboard
+      - key: DYPIU_BASE_URL
+        value: https://erp.dypiu.ac.in
