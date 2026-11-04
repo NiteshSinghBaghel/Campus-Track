@@ -368,13 +368,16 @@ export const TimetablePage: React.FC = () => {
 
       {/* Empty State: No timetable found */}
       {!loading && !error && timetable.length === 0 && currentAccount && (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+        <div className="text-center py-14 bg-white rounded-2xl border border-slate-200 px-4">
           <CalendarIcon className="w-10 h-10 text-slate-300 mx-auto" />
           <p className="text-slate-700 text-sm mt-3 font-semibold">
-            No scheduled lectures found for {formatDisplayDate(selectedDate)}
+            No classes scheduled for {formatDisplayDate(selectedDate)}
           </p>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            No classes are scheduled on this date (e.g. holiday, weekend, or term break). Use the calendar above to check another date.
+          <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
+            This could be a holiday, weekend, or Juno ERP hasn't published the timetable block yet. Try a weekday or use <strong className="text-slate-600">Adjust Timing &amp; Schedule</strong> to add slots manually.
+          </p>
+          <p className="text-[11px] text-slate-300 mt-3">
+            Enrolled subjects: MCA1001 · MCA1002 · MCA1003 · MCA1004 · MCA1005 · MCA1006
           </p>
         </div>
       )}

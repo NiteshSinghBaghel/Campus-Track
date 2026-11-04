@@ -378,10 +378,19 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         }
       }
 
-      // 1. Try today's schedule endpoint
+      // 1. Prime session by loading the academic timetable page
+      try {
+        await this.api.get('/stu_academicTimetableStudent.htm', {
+          headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` }
+        });
+      } catch (e) {
+        if (this.debug) console.warn('[DYPIUJunoAdapter] Timetable page priming failed:', e);
+      }
+
+      // 2. Try today's schedule endpoint (requires primed session)
       try {
         const res = await this.api.get(`/stu_getTodaysScheduleForStudentLoggedIn.json?date=${encodeURIComponent(formattedDate)}`, {
-          headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` }
+          headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` }
         });
         const data = safeParseJson(res.data);
         const list = Array.isArray(data) ? data : data?.Schedule || [];
@@ -400,13 +409,77 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         if (this.debug) console.warn('[DYPIUJunoAdapter] Today schedule fetch failed:', e);
       }
 
-      // 2. If today's schedule is empty (e.g. after hours or weekends), fetch between-dates timetable
+      // 3. Try block timetable via student personal info (academic timetable page API)
+      try {
+        // Get bachSemId for block timetable lookup
+        const infoRes = await this.api.get('/stu_studentPersonalInformationData.json', {
+          headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` }
+        });
+        const infoData = safeParseJson(infoRes.data);
+        const infoArr = Array.isArray(infoData) ? infoData : (infoData ? [infoData] : []);
+
+        if (infoArr.length > 0) {
+          const bachSemId = infoArr[0]?.bachSemId || infoArr[0]?.batchSemId;
+          if (bachSemId) {
+            // Get block sessions
+            const blockRes = await this.api.get(
+              `/loadDistinctBlockTimetableSession.json?batchSemesterCapacityIds=${bachSemId}`,
+              { headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` } }
+            );
+            const blocks = safeParseJson(blockRes.data);
+            const blockArr = Array.isArray(blocks) ? blocks : [];
+
+            // Find active/frozen block (most recent)
+            const activeBlock = blockArr.find((b: any) => b.freezed === true || b.freezed === 'true' || b.isFreeze === 'Y') || blockArr[0];
+            if (activeBlock) {
+              const blockId = activeBlock.blockTeachingTimeTableId || activeBlock.blockId;
+              if (blockId) {
+                // Fetch actual planned timetable
+                const ttRes = await this.api.get(
+                  `/fetchPlannedTimeTableforAllBatches.json?batchSemesterCapacityIds=${bachSemId}&blockTeachingTimeTableId=${blockId}`,
+                  { headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` } }
+                );
+                const ttData = safeParseJson(ttRes.data);
+
+                // ttData may be array indexed by day [0=sun,1=mon,...][slot]
+                const targetDay = date ? new Date(date).getDay() : today.getDay();
+                let daySlots: any[] = [];
+
+                if (Array.isArray(ttData)) {
+                  daySlots = Array.isArray(ttData[targetDay]) ? ttData[targetDay] : [];
+                } else if (ttData && typeof ttData === 'object') {
+                  // May be keyed by day number string
+                  daySlots = ttData[String(targetDay)] || ttData[targetDay] || [];
+                }
+
+                if (daySlots.length > 0) {
+                  return daySlots
+                    .filter((item: any) => item && (item.subjectName || item.courseName))
+                    .map((item: any) => ({
+                      dayOfWeek: targetDay,
+                      subjectName: item.subjectName || item.courseName || 'Lecture',
+                      facultyName: item.facultyName || item.faculty || item.facultName || 'Staff',
+                      classroom: item.class || item.roomNo || item.classroom || 'TBA',
+                      startTime: item.starttime || item.startTime || item.fromTime || '09:00',
+                      endTime: item.endtime || item.endTime || item.toTime || '10:00'
+                    }));
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        if (this.debug) console.warn('[DYPIUJunoAdapter] Block timetable fetch failed:', e);
+      }
+
+      // 4. Try between-dates timetable as fallback
       try {
         const start = `01/${mm}/${yyyy}`;
         const end = `30/${mm}/${yyyy}`;
-        const ttRes = await this.api.get(`/stu_getBetweenDatesTimetableForStudentSP.json?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}&termId=0`, {
-          headers: { 'Referer': `${this.baseUrl}/stu_getBetweenDatesTimetableForStudentSP.htm` }
-        });
+        const ttRes = await this.api.get(
+          `/stu_getBetweenDatesTimetableForStudentSP.json?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}&termId=0`,
+          { headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` } }
+        );
         const ttData = safeParseJson(ttRes.data);
         const list = Array.isArray(ttData) ? ttData : ttData?.Timetable || [];
 
@@ -424,53 +497,9 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         if (this.debug) console.warn('[DYPIUJunoAdapter] Between dates timetable failed:', e);
       }
 
-      // 3. Verified Student Curriculum Schedule (Actual DYPIU MCA / Degree courses & actual faculty)
-      const targetDay = date ? new Date(date).getDay() : today.getDay();
-
-      const weekdayScheduleMap: Record<number, TimetableSlot[]> = {
-        1: [ // Monday
-          { dayOfWeek: 1, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-101', startTime: '09:30', endTime: '10:30' },
-          { dayOfWeek: 1, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-101', startTime: '10:45', endTime: '11:45' },
-          { dayOfWeek: 1, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-101', startTime: '11:45', endTime: '12:45' },
-          { dayOfWeek: 1, subjectName: 'Data Structure with Python Lab (MCA1003P)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Computer Lab 3', startTime: '13:30', endTime: '15:30' },
-          { dayOfWeek: 1, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-101', startTime: '15:45', endTime: '16:45' }
-        ],
-        2: [ // Tuesday
-          { dayOfWeek: 2, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-101', startTime: '09:30', endTime: '10:30' },
-          { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-101', startTime: '10:45', endTime: '11:45' },
-          { dayOfWeek: 2, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-101', startTime: '11:45', endTime: '12:45' },
-          { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm Lab (MCA1002P)', facultyName: 'Mr. Rohit Deepak Rane', classroom: 'Lab 2', startTime: '13:30', endTime: '15:30' },
-          { dayOfWeek: 2, subjectName: 'Professional Skills - I (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'Seminar Hall', startTime: '15:45', endTime: '16:45' }
-        ],
-        3: [ // Wednesday
-          { dayOfWeek: 3, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-101', startTime: '09:30', endTime: '10:30' },
-          { dayOfWeek: 3, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-101', startTime: '10:45', endTime: '11:45' },
-          { dayOfWeek: 3, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-101', startTime: '11:45', endTime: '12:45' },
-          { dayOfWeek: 3, subjectName: 'AI & Data Science Practical Lab (MCA1005P)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'AI & ML Lab', startTime: '13:30', endTime: '15:30' },
-          { dayOfWeek: 3, subjectName: 'Statistical Mathematics Tutorial (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-101', startTime: '15:45', endTime: '16:45' }
-        ],
-        4: [ // Thursday
-          { dayOfWeek: 4, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-101', startTime: '09:30', endTime: '10:30' },
-          { dayOfWeek: 4, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-101', startTime: '10:45', endTime: '11:45' },
-          { dayOfWeek: 4, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-101', startTime: '11:45', endTime: '12:45' },
-          { dayOfWeek: 4, subjectName: 'Data Mining & Warehousing Lab (MCA1004P)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Database Lab', startTime: '13:30', endTime: '15:30' },
-          { dayOfWeek: 4, subjectName: 'Professional Skills - I (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'Seminar Hall', startTime: '15:45', endTime: '16:45' }
-        ],
-        5: [ // Friday
-          { dayOfWeek: 5, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-101', startTime: '09:30', endTime: '10:30' },
-          { dayOfWeek: 5, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-101', startTime: '10:45', endTime: '11:45' },
-          { dayOfWeek: 5, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-101', startTime: '11:45', endTime: '12:45' },
-          { dayOfWeek: 5, subjectName: 'Python Project & Code Review (MCA1003P)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Computer Lab 3', startTime: '13:30', endTime: '15:30' },
-          { dayOfWeek: 5, subjectName: 'Design Analysis Problem Solving (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-101', startTime: '15:45', endTime: '16:45' }
-        ],
-        6: [ // Saturday
-          { dayOfWeek: 6, subjectName: 'AI Seminar & Applied Analytics Workshop (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'Auditorium', startTime: '10:00', endTime: '12:00' },
-          { dayOfWeek: 6, subjectName: 'Technical Hackathon & Mentorship (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'Innovation Hub', startTime: '13:00', endTime: '15:00' }
-        ]
-      };
-
-      // Return day-specific schedule or default to Monday if Sunday (0)
-      return weekdayScheduleMap[targetDay] || weekdayScheduleMap[1];
+      // 5. ERP returned no live schedule — return empty so frontend shows honest "No classes" state
+      // (Do NOT fabricate/guess schedule here)
+      return [];
     } catch {
       return [];
     }
