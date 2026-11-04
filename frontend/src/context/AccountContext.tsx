@@ -62,26 +62,29 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       if (accounts.length === 0) setLoading(true);
       const list = await api.getAccounts();
-      if (list && list.length > 0) {
-        setAccounts(list);
-        try {
-          localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(list));
-        } catch {}
+      const safeList = list || [];
+      setAccounts(safeList);
+      try {
+        localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(safeList));
+      } catch {}
 
-        setActiveAccountState(prev => {
-          const storedId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
-          if (storedId) {
-            const foundStored = list.find(a => a.id === storedId);
-            if (foundStored) return foundStored;
-          }
-          if (prev) {
-            const found = list.find(a => a.id === prev.id);
-            if (found) return found;
-          }
-          const primary = list.find(a => a.isPrimary);
-          return primary || list[0];
-        });
-      }
+      setActiveAccountState(prev => {
+        if (safeList.length === 0) {
+          localStorage.removeItem(LOCAL_ACTIVE_ID_KEY);
+          return null;
+        }
+        const storedId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
+        if (storedId) {
+          const foundStored = safeList.find(a => a.id === storedId);
+          if (foundStored) return foundStored;
+        }
+        if (prev) {
+          const found = safeList.find(a => a.id === prev.id);
+          if (found) return found;
+        }
+        const primary = safeList.find(a => a.isPrimary);
+        return primary || safeList[0];
+      });
     } catch (err) {
       console.error('Failed to load accounts:', err);
     } finally {
