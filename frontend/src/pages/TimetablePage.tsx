@@ -13,8 +13,16 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  CalendarDays
+  CalendarDays,
+  Edit3,
+  Plus,
+  Trash2,
+  Check,
+  X,
+  RotateCcw
 } from 'lucide-react';
+
+const CUSTOM_TIMETABLE_KEY = 'campus_track_custom_timetable';
 
 export const TimetablePage: React.FC = () => {
   const { accounts, activeAccount, primaryAccount, setActiveAccount } = useAccounts();
@@ -22,6 +30,16 @@ export const TimetablePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requiresReauth, setRequiresReauth] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDay, setEditingDay] = useState<number>(1); // 1 = Mon, 2 = Tue, ...
+  const [customScheduleMap, setCustomScheduleMap] = useState<Record<number, TimetableSlot[]>>(() => {
+    try {
+      const saved = localStorage.getItem(CUSTOM_TIMETABLE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   // Today formatted as YYYY-MM-DD
   const getTodayISO = () => {
@@ -41,6 +59,14 @@ export const TimetablePage: React.FC = () => {
     const idToUse = accountId || currentAccount?.id;
     const dateToUse = dateStr || selectedDate;
     if (!idToUse) return;
+
+    // Check if user has defined a custom schedule override for this weekday
+    const targetDay = new Date(dateToUse).getDay() || 1;
+    if (customScheduleMap[targetDay] && customScheduleMap[targetDay].length > 0) {
+      setTimetable(customScheduleMap[targetDay]);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -67,7 +93,7 @@ export const TimetablePage: React.FC = () => {
     if (currentAccount?.id) {
       fetchTimetable(currentAccount.id, selectedDate);
     }
-  }, [currentAccount?.id, selectedDate]);
+  }, [currentAccount?.id, selectedDate, customScheduleMap]);
 
   // Date manipulation helpers
   const shiftDate = (days: number) => {
@@ -113,6 +139,68 @@ export const TimetablePage: React.FC = () => {
 
   const isToday = selectedDate === getTodayISO();
 
+  // Custom schedule editor handlers
+  const handleSlotChange = (day: number, index: number, field: keyof TimetableSlot, value: any) => {
+    setCustomScheduleMap(prev => {
+      const currentList = prev[day] ? [...prev[day]] : [...(timetable || [])];
+      if (currentList[index]) {
+        currentList[index] = { ...currentList[index], [field]: value };
+      }
+      return { ...prev, [day]: currentList };
+    });
+  };
+
+  const handleAddSlot = (day: number) => {
+    setCustomScheduleMap(prev => {
+      const currentList = prev[day] ? [...prev[day]] : [...(timetable || [])];
+      const newSlot: TimetableSlot = {
+        dayOfWeek: day,
+        subjectName: 'Data Structure with Python (MCA1003)',
+        facultyName: 'Mr. Abhijeet Nitin Jadhav',
+        classroom: 'LH-101',
+        startTime: '10:00',
+        endTime: '11:00'
+      };
+      return { ...prev, [day]: [...currentList, newSlot] };
+    });
+  };
+
+  const handleDeleteSlot = (day: number, index: number) => {
+    setCustomScheduleMap(prev => {
+      const currentList = prev[day] ? [...prev[day]] : [...(timetable || [])];
+      currentList.splice(index, 1);
+      return { ...prev, [day]: currentList };
+    });
+  };
+
+  const handleSaveCustomSchedule = () => {
+    try {
+      localStorage.setItem(CUSTOM_TIMETABLE_KEY, JSON.stringify(customScheduleMap));
+    } catch {}
+    setShowEditModal(false);
+    fetchTimetable(currentAccount?.id, selectedDate);
+  };
+
+  const handleResetToERPDefault = () => {
+    try {
+      localStorage.removeItem(CUSTOM_TIMETABLE_KEY);
+    } catch {}
+    setCustomScheduleMap({});
+    setShowEditModal(false);
+    fetchTimetable(currentAccount?.id, selectedDate);
+  };
+
+  const daysLabels = [
+    { num: 1, label: 'Mon' },
+    { num: 2, label: 'Tue' },
+    { num: 3, label: 'Wed' },
+    { num: 4, label: 'Thu' },
+    { num: 5, label: 'Fri' },
+    { num: 6, label: 'Sat' }
+  ];
+
+  const currentDaySlots = customScheduleMap[editingDay] || timetable;
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -126,18 +214,32 @@ export const TimetablePage: React.FC = () => {
           <p className="text-sm text-slate-500">
             Schedule for{' '}
             <strong className="text-slate-800">{currentAccount?.studentName || 'Student'}</strong>{' '}
-            ({currentAccount?.prn || 'PRN'} • {currentAccount?.program || 'Engineering'}).
+            ({currentAccount?.prn || 'PRN'} • {currentAccount?.program || 'MCA'}).
           </p>
         </div>
 
-        <button
-          onClick={() => fetchTimetable()}
-          disabled={loading || !currentAccount}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-sm transition-all self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
-          Refresh Timetable
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => {
+              const curDay = new Date(selectedDate).getDay() || 1;
+              setEditingDay(curDay);
+              setShowEditModal(true);
+            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            Adjust Timing & Schedule
+          </button>
+
+          <button
+            onClick={() => fetchTimetable()}
+            disabled={loading || !currentAccount}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-sm transition-all"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Account Selector Pill Tabs with Primary Badge */}
@@ -315,6 +417,164 @@ export const TimetablePage: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Adjust Timing & Schedule Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Customize Lecture Timings & Schedule</h3>
+                  <p className="text-xs text-slate-500">Edit lecture times, subjects, and classrooms to match your exact class routine.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Day Selector Tabs */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl mb-4 overflow-x-auto">
+              {daysLabels.map(d => (
+                <button
+                  key={d.num}
+                  onClick={() => setEditingDay(d.num)}
+                  className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap ${
+                    editingDay === d.num
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Slots Editor List */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[50vh]">
+              {(customScheduleMap[editingDay] || timetable).map((slot, idx) => (
+                <div key={idx} className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase">
+                      Slot #{idx + 1}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteSlot(editingDay, idx)}
+                      className="text-slate-400 hover:text-rose-600 p-1 rounded-lg transition-all"
+                      title="Remove Slot"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {/* Start Time */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        value={slot.startTime}
+                        onChange={e => handleSlotChange(editingDay, idx, 'startTime', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
+                      />
+                    </div>
+
+                    {/* End Time */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">End Time</label>
+                      <input
+                        type="time"
+                        value={slot.endTime}
+                        onChange={e => handleSlotChange(editingDay, idx, 'endTime', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
+                      />
+                    </div>
+
+                    {/* Classroom */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Room / Lab</label>
+                      <input
+                        type="text"
+                        value={slot.classroom}
+                        placeholder="LH-101"
+                        onChange={e => handleSlotChange(editingDay, idx, 'classroom', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
+                      />
+                    </div>
+
+                    {/* Faculty */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">Professor</label>
+                      <input
+                        type="text"
+                        value={slot.facultyName}
+                        placeholder="Faculty"
+                        onChange={e => handleSlotChange(editingDay, idx, 'facultyName', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Subject Name */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Subject / Lecture Title</label>
+                    <input
+                      type="text"
+                      value={slot.subjectName}
+                      placeholder="Subject Name"
+                      onChange={e => handleSlotChange(editingDay, idx, 'subjectName', e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 bg-white"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={() => handleAddSlot(editingDay)}
+                className="w-full py-2.5 rounded-2xl border-2 border-dashed border-indigo-200 hover:border-indigo-400 text-indigo-600 font-bold text-xs flex items-center justify-center gap-1.5 transition-all bg-indigo-50/30"
+              >
+                <Plus className="w-4 h-4" />
+                Add Lecture Slot
+              </button>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+              <button
+                onClick={handleResetToERPDefault}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset to ERP Default
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveCustomSchedule}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all"
+                >
+                  <Check className="w-4 h-4" />
+                  Save & Apply Schedule
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
