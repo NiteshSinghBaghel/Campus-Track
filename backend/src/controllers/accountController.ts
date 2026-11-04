@@ -42,7 +42,9 @@ export const accountController = {
     } catch (err) {
       let message = 'Failed to connect student account';
       if (err instanceof z.ZodError) {
-        message = err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+        message = err.issues
+  .map((e) => `${e.path.join('.')}: ${e.message}`)
+  .join(', ');
       } else if (err instanceof Error) {
         message = err.message;
       }
