@@ -2,6 +2,7 @@
   "name": "campus-track",
   "version": "1.0.0",
   "description": "Campus Track - Multi-Account Student Platform & DYPIU Juno ERP Companion",
+  "type": "module",
   "workspaces": [
     "backend",
     "frontend"
