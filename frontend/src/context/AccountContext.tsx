@@ -15,21 +15,65 @@ interface AccountContextType {
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
 
+const LOCAL_ACCOUNTS_KEY = 'campustrack_accounts_cache';
+const LOCAL_ACTIVE_ID_KEY = 'campustrack_active_account_id';
+
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [accounts, setAccounts] = useState<StudentAccount[]>([]);
-  const [activeAccount, setActiveAccount] = useState<StudentAccount | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [accounts, setAccounts] = useState<StudentAccount[]>(() => {
+    try {
+      const cached = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [activeAccount, setActiveAccountState] = useState<StudentAccount | null>(() => {
+    try {
+      const cachedAccounts = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+      const activeId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
+      if (cachedAccounts) {
+        const parsed: StudentAccount[] = JSON.parse(cachedAccounts);
+        if (activeId) {
+          const match = parsed.find(a => a.id === activeId);
+          if (match) return match;
+        }
+        const primary = parsed.find(a => a.isPrimary);
+        return primary || parsed[0] || null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [loading, setLoading] = useState(accounts.length === 0);
 
   const primaryAccount = accounts.find(a => a.isPrimary) || (accounts.length > 0 ? accounts[0] : null);
 
+  const setActiveAccount = (account: StudentAccount) => {
+    setActiveAccountState(account);
+    try {
+      localStorage.setItem(LOCAL_ACTIVE_ID_KEY, account.id);
+    } catch {}
+  };
+
   const refreshAccounts = async () => {
     try {
-      setLoading(true);
+      if (accounts.length === 0) setLoading(true);
       const list = await api.getAccounts();
-      setAccounts(list);
-      if (list.length > 0) {
-        // Retain current active account or select primary
-        setActiveAccount(prev => {
+      if (list && list.length > 0) {
+        setAccounts(list);
+        try {
+          localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(list));
+        } catch {}
+
+        setActiveAccountState(prev => {
+          const storedId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
+          if (storedId) {
+            const foundStored = list.find(a => a.id === storedId);
+            if (foundStored) return foundStored;
+          }
           if (prev) {
             const found = list.find(a => a.id === prev.id);
             if (found) return found;
@@ -37,8 +81,6 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const primary = list.find(a => a.isPrimary);
           return primary || list[0];
         });
-      } else {
-        setActiveAccount(null);
       }
     } catch (err) {
       console.error('Failed to load accounts:', err);

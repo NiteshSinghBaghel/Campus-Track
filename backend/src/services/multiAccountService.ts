@@ -4,6 +4,8 @@ import { encrypt, decrypt } from '../utils/crypto.js';
 import fs from 'fs';
 import path from 'path';
 
+import { fileURLToPath } from 'url';
+
 export interface ConnectedAccountRecord {
   id: string;
   userId: string;
@@ -21,13 +23,17 @@ export interface ConnectedAccountRecord {
   encryptedUsername?: string;
 }
 
-const DATA_FILE = path.resolve(process.cwd(), 'data/accounts.json');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_FILE = path.resolve(__dirname, '../../data/accounts.json');
+const DATA_BACKUP_FILE = path.resolve(__dirname, '../../data/accounts.backup.json');
 
 function loadPersistedAccounts(): Map<string, ConnectedAccountRecord> {
   const map = new Map<string, ConnectedAccountRecord>();
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    const fileToRead = fs.existsSync(DATA_FILE) ? DATA_FILE : (fs.existsSync(DATA_BACKUP_FILE) ? DATA_BACKUP_FILE : null);
+    if (fileToRead) {
+      const raw = fs.readFileSync(fileToRead, 'utf-8');
       const data = JSON.parse(raw);
       if (Array.isArray(data)) {
         for (const acc of data) {
@@ -47,7 +53,9 @@ function persistAccounts(accounts: Map<string, ConnectedAccountRecord>) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(Array.from(accounts.values()), null, 2), 'utf-8');
+    const serialized = JSON.stringify(Array.from(accounts.values()), null, 2);
+    fs.writeFileSync(DATA_FILE, serialized, 'utf-8');
+    fs.writeFileSync(DATA_BACKUP_FILE, serialized, 'utf-8');
   } catch (e) {
     console.warn('[MultiAccountService] Failed to save accounts:', e);
   }
