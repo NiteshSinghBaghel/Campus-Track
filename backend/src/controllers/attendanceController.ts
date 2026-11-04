@@ -7,7 +7,7 @@ import { z } from 'zod';
 const oneScanSchema = z.object({
   qrPayload: z.string().min(1, 'QR payload is required'),
   targetAccountIds: z.array(z.string()).optional(),
-  challengeResponses: z.record(z.string()).optional()
+  challengeResponses: z.record(z.string(), z.string()).optional()
 });
 
 export const attendanceController = {
