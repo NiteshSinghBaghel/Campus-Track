@@ -2,7 +2,7 @@
   "name": "campus-track-backend",
   "version": "1.0.0",
   "description": "Campus Track Backend - DYPIU Juno ERP Companion Platform",
-  "main": "dist/server.js",
+  "main": "dist/app.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
