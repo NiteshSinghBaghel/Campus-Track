@@ -6,8 +6,8 @@ import { GroupAttendanceBatchResponse } from '../types/index.js';
 import { Html5Qrcode } from 'html5-qrcode';
 import {
   ArrowLeft,
-  QrCode,
-  Users,
+  Clock,
+  User,
   Flashlight,
   FlashlightOff,
   CheckCircle2,
@@ -15,8 +15,7 @@ import {
   X,
   Check,
   Star,
-  RefreshCw,
-  Sparkles
+  RefreshCw
 } from 'lucide-react';
 
 export const ScannerPage: React.FC = () => {
@@ -32,31 +31,51 @@ export const ScannerPage: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [torchOn, setTorchOn] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [challengeAnswers, setChallengeAnswers] = useState<Record<string, string>>({});
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const isStoppingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const selectedAccountsRef = useRef<string[]>([]);
+  const accountsRef = useRef(accounts);
 
-  // Initialize selected accounts: select all connected accounts by default
+  // Keep refs synchronized
   useEffect(() => {
-    const connectedIds = accounts
-      .filter(a => a.connectionStatus === 'CONNECTED')
-      .map(a => a.id);
+    selectedAccountsRef.current = selectedAccounts;
+  }, [selectedAccounts]);
 
-    if (connectedIds.length > 0) {
-      setSelectedAccounts(connectedIds);
-    } else if (primaryAccount) {
-      setSelectedAccounts([primaryAccount.id]);
-    } else if (accounts.length > 0) {
-      setSelectedAccounts(accounts.map(a => a.id));
-    }
+  useEffect(() => {
+    accountsRef.current = accounts;
+  }, [accounts]);
+
+  // Initialize selected accounts: select connected or all available accounts by default
+  useEffect(() => {
+    if (accounts.length === 0) return;
+
+    setSelectedAccounts(prev => {
+      // If already initialized with accounts that still exist, keep selection
+      if (prev.length > 0) {
+        const stillValid = prev.filter(id => accounts.some(a => a.id === id));
+        if (stillValid.length > 0) return stillValid;
+      }
+
+      const connectedIds = accounts
+        .filter(a => a.connectionStatus === 'CONNECTED')
+        .map(a => a.id);
+
+      if (connectedIds.length > 0) {
+        return connectedIds;
+      }
+      if (primaryAccount) {
+        return [primaryAccount.id];
+      }
+      return accounts.map(a => a.id);
+    });
   }, [accounts, primaryAccount]);
 
-  // Apply Camera Zoom (Hardware constraint + CSS transform scale fallback)
+  // Apply Camera Zoom (Hardware track zoom + CSS scale)
   const applyZoom = (zoomVal: number) => {
-    const clamped = Math.max(1, Math.min(4, zoomVal));
+    const clamped = Math.max(1, Math.min(4, Math.round(zoomVal * 10) / 10));
     setZoomLevel(clamped);
 
     // 1. Hardware camera track zoom
@@ -78,7 +97,7 @@ export const ScannerPage: React.FC = () => {
       if (videoElem) {
         videoElem.style.transform = `scale(${clamped})`;
         videoElem.style.transformOrigin = 'center center';
-        videoElem.style.transition = 'transform 0.15s ease-out';
+        videoElem.style.transition = 'transform 0.1s ease-out';
       }
     } catch {}
   };
@@ -93,35 +112,30 @@ export const ScannerPage: React.FC = () => {
         const capabilities = (track.getCapabilities && track.getCapabilities()) as any;
         if (capabilities && capabilities.torch) {
           await track.applyConstraints({ advanced: [{ torch: !torchOn }] } as any);
-          setTorchOn(!torchOn);
-        } else {
-          setTorchOn(!torchOn);
         }
       }
-    } catch {
-      setTorchOn(!torchOn);
-    }
-  };
-
-  // Toggle Fullscreen
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
-    }
+    } catch {}
+    setTorchOn(prev => !prev);
   };
 
   // Submit attendance for target accounts
   const handleAttendanceSubmit = async (payloadToUse: string) => {
-    if (!payloadToUse.trim()) {
-      setErrorMsg('Please align camera over a valid faculty attendance QR code.');
+    if (!payloadToUse || !payloadToUse.trim()) {
+      setErrorMsg('Please align camera over a valid attendance QR code.');
       return;
     }
 
-    if (selectedAccounts.length === 0) {
+    // Determine target account IDs robustly using latest ref and fallback
+    let targetIds = selectedAccountsRef.current;
+    if (!targetIds || targetIds.length === 0) {
+      if (accountsRef.current.length > 0) {
+        const connected = accountsRef.current.filter(a => a.connectionStatus === 'CONNECTED').map(a => a.id);
+        targetIds = connected.length > 0 ? connected : accountsRef.current.map(a => a.id);
+        setSelectedAccounts(targetIds);
+      }
+    }
+
+    if (!targetIds || targetIds.length === 0) {
       setErrorMsg('Please select at least one account via the Switch button.');
       return;
     }
@@ -145,7 +159,7 @@ export const ScannerPage: React.FC = () => {
 
       const res = await api.submitOneScan({
         qrPayload: payloadToUse,
-        targetAccountIds: selectedAccounts,
+        targetAccountIds: targetIds,
         challengeResponses: challengeAnswers
       });
 
@@ -174,7 +188,7 @@ export const ScannerPage: React.FC = () => {
         { facingMode: 'environment' },
         {
           fps: 15,
-          qrbox: { width: 280, height: 280 }
+          qrbox: { width: 280, height: 190 }
         },
         async (decodedText) => {
           if (decodedText === lastScannedPayload && isScanning) return;
@@ -243,40 +257,43 @@ export const ScannerPage: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-screen bg-black text-white overflow-hidden flex flex-col justify-between select-none"
+      className="relative w-full h-screen bg-black text-white overflow-hidden flex flex-col justify-between select-none font-sans"
     >
-      {/* Top Header Bar */}
-      <div className="relative z-20 flex items-center justify-between px-5 py-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-        <button
-          onClick={() => navigate('/')}
-          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all shadow-md"
-          title="Back to Dashboard"
-        >
-          <ArrowLeft className="w-5 h-5 text-white" />
-        </button>
-
-        <div className="flex items-center gap-2">
-          {/* Torch Toggle */}
+      {/* Top Header Bar matching Screenshot 2 */}
+      <div className="relative z-20 flex items-center justify-between px-4 pt-4 pb-2 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
+        {/* Left: Back Arrow + Mark Attendance Title */}
+        <div className="flex items-center gap-3">
           <button
-            onClick={toggleTorch}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${
-              torchOn
-                ? 'bg-amber-400 text-black shadow-[0_0_12px_#f59e0b]'
-                : 'bg-white/10 hover:bg-white/20 text-white/90 backdrop-blur-md'
-            }`}
-            title={torchOn ? 'Turn off light' : 'Turn on light'}
+            onClick={() => navigate('/')}
+            className="p-1 -ml-1 text-white hover:opacity-80 transition-opacity"
+            title="Back to Dashboard"
           >
-            {torchOn ? <Flashlight className="w-5 h-5 fill-current" /> : <FlashlightOff className="w-5 h-5" />}
+            <ArrowLeft className="w-6 h-6 stroke-[2.2]" />
+          </button>
+          <h1 className="text-lg font-bold text-white tracking-wide">
+            Mark Attendance
+          </h1>
+        </div>
+
+        {/* Right: Clock Icon + Profile/User Icon with Green Badge */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/timetable')}
+            className="text-white/90 hover:text-white transition-opacity p-1"
+            title="Timetable / Schedule"
+          >
+            <Clock className="w-6 h-6 stroke-[2]" />
           </button>
 
-          {/* User Counter Badge with green pill */}
           <button
             onClick={() => setShowSwitchModal(true)}
-            className="h-10 px-3.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center gap-2 text-white transition-all shadow-md"
-            title="Select & Manage Accounts"
+            className="relative text-white/90 hover:text-white transition-opacity p-1"
+            title="Switch Accounts"
           >
-            <Users className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-bold">{selectedAccounts.length}</span>
+            <User className="w-6 h-6 stroke-[2]" />
+            <span className="absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[#22c55e] text-black text-[10px] font-black flex items-center justify-center leading-none">
+              {selectedAccounts.length}
+            </span>
           </button>
         </div>
       </div>
@@ -303,27 +320,23 @@ export const ScannerPage: React.FC = () => {
         )}
       </div>
 
-      {/* Center Target Box Overlay with Clean Minimal QR Scanner Reticle */}
+      {/* Center Target Box Overlay matching Screenshot 2 */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center pointer-events-none px-4">
-        <div className="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
+        {/* Rectangular scanning bracket */}
+        <div className="relative w-72 h-44 sm:w-80 sm:h-48 flex items-center justify-center">
           {/* Top-Left Corner */}
-          <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-[#22c55e] rounded-tl-2xl shadow-[0_0_12px_#22c55e]" />
+          <div className="absolute top-0 left-0 w-8 h-8 border-t-[3.5px] border-l-[3.5px] border-[#22c55e] rounded-tl-xl shadow-[0_0_8px_#22c55e]" />
           {/* Top-Right Corner */}
-          <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-[#22c55e] rounded-tr-2xl shadow-[0_0_12px_#22c55e]" />
+          <div className="absolute top-0 right-0 w-8 h-8 border-t-[3.5px] border-r-[3.5px] border-[#22c55e] rounded-tr-xl shadow-[0_0_8px_#22c55e]" />
           {/* Bottom-Left Corner */}
-          <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-[#22c55e] rounded-bl-2xl shadow-[0_0_12px_#22c55e]" />
+          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-[3.5px] border-l-[3.5px] border-[#22c55e] rounded-bl-xl shadow-[0_0_8px_#22c55e]" />
           {/* Bottom-Right Corner */}
-          <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-[#22c55e] rounded-br-2xl shadow-[0_0_12px_#22c55e]" />
-
-          {/* Clean Scanner Icon in the Center */}
-          <div className="opacity-20 flex flex-col items-center justify-center pointer-events-none">
-            <QrCode className="w-20 h-20 text-white" />
-          </div>
+          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-[3.5px] border-r-[3.5px] border-[#22c55e] rounded-br-xl shadow-[0_0_8px_#22c55e]" />
 
           {/* Animated Neon Green Laser Scanning Line */}
           {isScanning && (
             <div
-              className="absolute left-2 right-2 h-1 bg-gradient-to-r from-transparent via-[#22c55e] to-transparent shadow-[0_0_16px_#22c55e] rounded-full animate-pulse"
+              className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-[#22c55e] to-transparent shadow-[0_0_12px_#22c55e] rounded-full"
               style={{
                 top: '50%',
                 animation: 'scanLaser 2.2s ease-in-out infinite alternate'
@@ -334,7 +347,7 @@ export const ScannerPage: React.FC = () => {
 
         {/* Loading Indicator while Submitting */}
         {loading && (
-          <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 backdrop-blur-md shadow-2xl animate-pulse">
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 backdrop-blur-md shadow-2xl animate-pulse">
             <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin" />
             <span className="text-xs font-bold text-emerald-300">
               Submitting attendance for {selectedAccounts.length} students...
@@ -342,7 +355,7 @@ export const ScannerPage: React.FC = () => {
           </div>
         )}
 
-        {/* Error notification if any */}
+        {/* Error notification */}
         {errorMsg && (
           <div className="mt-4 max-w-xs mx-auto inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-rose-950/90 border border-rose-500/50 backdrop-blur-md shadow-2xl pointer-events-auto">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
@@ -353,35 +366,90 @@ export const ScannerPage: React.FC = () => {
           </div>
         )}
 
-        {/* Reticle Instruction Pill */}
-        <div className="mt-5 px-4 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-xs font-medium text-white/90 shadow-lg tracking-wide flex items-center gap-2">
-          <QrCode className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Point at faculty QR code</span>
+        {/* Instruction Capsule: "Align classroom QR inside frame" */}
+        <div className="mt-5 px-5 py-2 rounded-full bg-black/60 backdrop-blur-md text-[13px] font-medium text-white/90 shadow-md">
+          Align classroom QR inside frame
         </div>
 
-        {/* Selected Accounts Pill with Switch Button */}
-        <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md shadow-xl pointer-events-auto">
-          <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse shadow-[0_0_8px_#22c55e]" />
+        {/* Account Selector Pill: "• Accounts (2/3)  [Switch]" */}
+        <div className="mt-3.5 inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md shadow-md pointer-events-auto">
+          <span className="w-2 h-2 rounded-full bg-[#22c55e] shadow-[0_0_6px_#22c55e]" />
           <span className="text-xs font-semibold text-white/90">
-            {selectedAccounts.length} Student{selectedAccounts.length === 1 ? '' : 's'} Selected
+            Accounts ({selectedAccounts.length}/{accounts.length || selectedAccounts.length})
           </span>
           <button
             onClick={() => setShowSwitchModal(true)}
-            className="ml-1 px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-emerald-300 transition-all border border-white/10"
+            className="ml-0.5 px-3 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-all"
           >
-            Change
+            Switch
           </button>
         </div>
       </div>
 
-      {/* Clean Bottom Area */}
-      <div className="relative z-20 pb-8 pt-3 px-4 flex justify-center">
-        <div className="text-[11px] text-white/40 tracking-wider uppercase font-semibold">
-          Auto-marks present upon scan
+      {/* Bottom Area matching Screenshot 2: Zoom Slider Bar + Flashlight Button */}
+      <div className="relative z-20 pb-7 pt-2 px-5 flex flex-col items-center gap-4">
+        {/* Zoom Slider Control Container */}
+        <div className="w-full max-w-xs bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-3">
+          {/* 1x Quick button */}
+          <button
+            onClick={() => applyZoom(1)}
+            className={`w-7 h-7 rounded-full text-xs font-bold transition-all flex items-center justify-center shrink-0 ${
+              zoomLevel === 1
+                ? 'bg-white text-black'
+                : 'bg-transparent text-white/70 hover:text-white'
+            }`}
+          >
+            1×
+          </button>
+
+          {/* 2x Quick button */}
+          <button
+            onClick={() => applyZoom(2)}
+            className={`w-7 h-7 rounded-full text-xs font-bold transition-all flex items-center justify-center shrink-0 ${
+              zoomLevel === 2
+                ? 'bg-white text-black'
+                : 'bg-transparent text-white/70 hover:text-white'
+            }`}
+          >
+            2×
+          </button>
+
+          {/* Zoom Range Slider */}
+          <input
+            type="range"
+            min="1"
+            max="4"
+            step="0.1"
+            value={zoomLevel}
+            onChange={(e) => applyZoom(parseFloat(e.target.value))}
+            className="flex-1 accent-white h-1 bg-white/30 rounded-lg appearance-none cursor-pointer"
+          />
+
+          {/* Current Zoom Readout */}
+          <span className="text-xs font-mono text-white/70 shrink-0 min-w-[28px] text-right">
+            {zoomLevel.toFixed(1)}×
+          </span>
         </div>
+
+        {/* Circular Torch / Flashlight Button */}
+        <button
+          onClick={toggleTorch}
+          className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md transition-all shadow-lg ${
+            torchOn
+              ? 'bg-amber-400 text-black shadow-[0_0_16px_#f59e0b]'
+              : 'bg-black/60 text-white/90 border border-white/10 hover:bg-black/80'
+          }`}
+          title={torchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
+        >
+          {torchOn ? (
+            <Flashlight className="w-5 h-5 fill-current" />
+          ) : (
+            <FlashlightOff className="w-5 h-5 stroke-[2]" />
+          )}
+        </button>
       </div>
 
-      {/* Switch Accounts Modal (Select & Deselect Registered Student Profiles) */}
+      {/* Switch Accounts Modal */}
       {showSwitchModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-5">
@@ -389,12 +457,12 @@ export const ScannerPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                  <Users className="w-4 h-4" />
+                  <User className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-white">Target Student Accounts</h3>
                   <p className="text-xs text-slate-400">
-                    Selected for One-Scan Attendance ({selectedAccounts.length}/{accounts.length})
+                    Selected for Attendance ({selectedAccounts.length}/{accounts.length})
                   </p>
                 </div>
               </div>
@@ -447,7 +515,7 @@ export const ScannerPage: React.FC = () => {
                             : 'border-slate-600 bg-slate-800'
                         }`}
                       >
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       </div>
 
                       <div className="min-w-0">
@@ -585,7 +653,7 @@ export const ScannerPage: React.FC = () => {
       <style>{`
         @keyframes scanLaser {
           0% {
-            top: 5%;
+            top: 6%;
             opacity: 0.2;
           }
           50% {
