@@ -334,6 +334,27 @@ export const ScannerPage: React.FC = () => {
           )}
         </div>
 
+        {/* Loading Indicator while Submitting */}
+        {loading && (
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 backdrop-blur-md shadow-2xl animate-pulse">
+            <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin" />
+            <span className="text-xs font-bold text-emerald-300">
+              Submitting attendance for {selectedAccounts.length} students...
+            </span>
+          </div>
+        )}
+
+        {/* Error notification if any */}
+        {errorMsg && (
+          <div className="mt-4 max-w-xs mx-auto inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-rose-950/90 border border-rose-500/50 backdrop-blur-md shadow-2xl pointer-events-auto">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="text-xs font-semibold text-rose-200 truncate">{errorMsg}</span>
+            <button onClick={() => setErrorMsg('')} className="text-rose-400 hover:text-white ml-auto">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Reticle Instruction Pill */}
         <div className="mt-5 px-5 py-2 rounded-full bg-[#18181b]/90 border border-white/10 backdrop-blur-md text-xs font-medium text-white/95 shadow-lg tracking-wide">
           Align classroom QR inside frame
@@ -531,27 +552,25 @@ export const ScannerPage: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <div>
-                <span className="text-emerald-400 font-extrabold text-xs tracking-wider uppercase">
-                  Attendance Confirmed
+                <span className="text-emerald-400 font-extrabold text-xs tracking-wider uppercase flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Attendance Confirmed
                 </span>
-                <h3 className="font-extrabold text-base text-white mt-0.5">
+                <h3 className="font-extrabold text-base text-white mt-1">
                   {batchResult.subjectName || 'Course Attendance'} ({batchResult.subjectCode || 'SUB'})
                 </h3>
               </div>
               <button
-                onClick={() => {
-                  setBatchResult(null);
-                  startScanner();
-                }}
+                onClick={() => navigate('/')}
                 className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all"
+                title="Go to Dashboard"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="flex items-center gap-2 mb-4">
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
-                {batchResult.totalPresent} Present
+              <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> {batchResult.totalPresent} Marked Present
               </span>
               {batchResult.totalRequiresVerification > 0 && (
                 <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
@@ -565,20 +584,21 @@ export const ScannerPage: React.FC = () => {
               )}
             </div>
 
-            <div className="divide-y divide-slate-800">
+            {/* List of target students and their status */}
+            <div className="divide-y divide-slate-800 bg-slate-950/60 rounded-2xl border border-slate-800/80 p-3 mb-5">
               {batchResult.results.map((res, i) => (
-                <div key={i} className="py-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-bold text-xs text-white">{res.studentName}</p>
-                    <p className="text-[11px] text-slate-400">{res.prn} • {res.message}</p>
+                <div key={i} className="py-2.5 px-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-xs text-white truncate">{res.studentName}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{res.prn} • {res.message}</p>
                   </div>
                   {res.status === 'PRESENT' && (
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-500/30">
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-500/30 shrink-0">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Present
                     </span>
                   )}
                   {res.status === 'FAILED' && (
-                    <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-1 border border-rose-500/30">
+                    <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-1 border border-rose-500/30 shrink-0">
                       <AlertCircle className="w-3.5 h-3.5" /> Failed
                     </span>
                   )}
@@ -586,15 +606,25 @@ export const ScannerPage: React.FC = () => {
               ))}
             </div>
 
-            <button
-              onClick={() => {
-                setBatchResult(null);
-                startScanner();
-              }}
-              className="mt-6 w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all"
-            >
-              Scan Next Classroom QR
-            </button>
+            {/* Action Buttons: Done (Redirect to Dashboard) & Scan Next */}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button
+                onClick={() => navigate('/')}
+                className="w-full py-3.5 rounded-2xl bg-[#22c55e] hover:bg-emerald-400 text-black font-extrabold text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all"
+              >
+                <Check className="w-4 h-4 stroke-[3]" /> Done & Back to Dashboard
+              </button>
+
+              <button
+                onClick={() => {
+                  setBatchResult(null);
+                  startScanner();
+                }}
+                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 whitespace-nowrap transition-all"
+              >
+                Scan Next QR
+              </button>
+            </div>
           </div>
         </div>
       )}
