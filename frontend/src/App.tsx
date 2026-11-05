@@ -10,7 +10,7 @@ import { TimetablePage } from './pages/TimetablePage.js';
 import { LoginPage } from './pages/LoginPage.js';
 
 const ProtectedLayout: React.FC = () => {
-  const { isAuthenticated, loading } = useAccounts();
+  const { isAuthenticated, loading, accounts } = useAccounts();
 
   if (loading) {
     return (
@@ -23,7 +23,8 @@ const ProtectedLayout: React.FC = () => {
     );
   }
 
-  if (!isAuthenticated) {
+  // Must have a valid auth token AND at least 1 registered primary account
+  if (!isAuthenticated || accounts.length === 0) {
     return <Navigate to="/login" replace />;
   }
 
@@ -31,13 +32,13 @@ const ProtectedLayout: React.FC = () => {
 };
 
 const LoginRoute: React.FC = () => {
-  const { isAuthenticated, loading } = useAccounts();
+  const { isAuthenticated, loading, accounts } = useAccounts();
 
   if (loading) {
     return null;
   }
 
-  if (isAuthenticated) {
+  if (isAuthenticated && accounts.length > 0) {
     return <Navigate to="/" replace />;
   }
 
