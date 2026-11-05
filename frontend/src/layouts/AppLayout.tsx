@@ -214,47 +214,6 @@ export const AppLayout: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Connected Accounts Switcher */}
-                  {accounts.length > 1 && (
-                    <div className="mb-2">
-                      <p className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
-                        Switch Student ({accounts.length})
-                      </p>
-                      <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
-                        {accounts.map(acc => {
-                          const isCurActive = acc.id === (activeAccount?.id || primaryAccount?.id);
-                          const accImg = api.getAccountImageUrl(acc.id);
-
-                          return (
-                            <button
-                              key={acc.id}
-                              onClick={() => setActiveAccount(acc)}
-                              className={`text-left p-2 rounded-xl text-xs transition-all flex items-center gap-2.5 ${
-                                isCurActive
-                                  ? 'bg-indigo-50 text-indigo-700 font-bold shadow-xs'
-                                  : 'text-slate-700 hover:bg-slate-100'
-                              }`}
-                            >
-                              <img
-                                src={accImg}
-                                alt=""
-                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                                className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs">{acc.studentName}</p>
-                                <p className="text-[10px] text-slate-400 truncate">{acc.prn}</p>
-                              </div>
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-700 shrink-0">
-                                {acc.attendancePercentage}%
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Logout Button */}
                   <div className="pt-2 border-t border-slate-100">
                     <button

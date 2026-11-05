@@ -83,7 +83,11 @@ export const accountController = {
         res.status(404).send('Profile image not found');
         return;
       }
-      res.setHeader('Content-Type', imgData.contentType);
+      // Force JPEG content-type since Juno returns wrong 'application/json' header for image binary
+      const ctHeader = imgData.buffer && imgData.buffer[0] === 0xFF && imgData.buffer[1] === 0xD8
+        ? 'image/jpeg'
+        : (imgData.contentType.startsWith('image/') ? imgData.contentType : 'image/jpeg');
+      res.setHeader('Content-Type', ctHeader);
       res.setHeader('Cache-Control', 'public, max-age=86400');
       res.send(imgData.buffer);
     } catch (err) {
