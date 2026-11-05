@@ -8,3 +8,4 @@ router.post('/login', authController.primaryLogin);
 router.get('/me', authMiddleware, authController.getMe);
 
 export default router;
+

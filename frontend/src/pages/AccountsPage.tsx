@@ -264,16 +264,6 @@ export const AccountsPage: React.FC = () => {
                     <strong>Explicit Owner Consent:</strong> I confirm that I am the account owner or have obtained explicit permission from the student to coordinate authorized attendance.
                   </span>
                 </label>
-
-                <label className="flex items-center gap-2.5 cursor-pointer pt-1">
-                  <input
-                    type="checkbox"
-                    checked={isPrimary}
-                    onChange={e => setIsPrimary(e.target.checked)}
-                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-[11px] text-slate-600">Set as my Primary account</span>
-                </label>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">

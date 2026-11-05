@@ -36,25 +36,16 @@ export const AppLayout: React.FC = () => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white border-r border-slate-800 p-4 shrink-0">
         <div className="flex items-center gap-3 px-3 py-4 border-b border-slate-800 mb-6">
-          {/* Primary User Profile Image in Top Left */}
-          {avatarUrl && !imgError ? (
-            <img
-              src={avatarUrl}
-              alt={primaryOrActive?.studentName || 'Student Profile'}
-              onError={() => setImgError(true)}
-              className="w-10 h-10 rounded-xl object-cover border-2 border-indigo-500/50 shadow-md shrink-0 bg-slate-800"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 shrink-0">
-              {primaryOrActive?.studentName ? primaryOrActive.studentName.slice(0, 2).toUpperCase() : <Sparkles className="w-5 h-5 text-white" />}
-            </div>
-          )}
+          {/* Top Left Branding: Application Name + Logo */}
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/25 shrink-0">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
           <div className="min-w-0">
-            <h1 className="font-bold text-sm leading-tight tracking-tight text-white truncate">
-              {primaryOrActive?.studentName || 'Campus Track'}
+            <h1 className="font-bold text-base leading-tight tracking-tight text-white truncate">
+              Campus Track
             </h1>
             <p className="text-[11px] text-indigo-400 font-medium truncate">
-              {primaryOrActive?.prn || 'DYPIU Juno ERP'}
+              DYPIU Juno ERP
             </p>
           </div>
         </div>
@@ -154,22 +145,13 @@ export const AppLayout: React.FC = () => {
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 md:hidden">
-            {/* Mobile Top Left: Primary User Profile Image */}
-            {avatarUrl && !imgError ? (
-              <img
-                src={avatarUrl}
-                alt={primaryOrActive?.studentName || 'Student'}
-                onError={() => setImgError(true)}
-                className="w-8 h-8 rounded-lg object-cover border border-indigo-400 shadow-sm shrink-0 bg-slate-800"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">
-                {primaryOrActive?.studentName ? primaryOrActive.studentName.slice(0, 2).toUpperCase() : 'CT'}
-              </div>
-            )}
+            {/* Mobile Top Left: App Logo + Name */}
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-md">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
             <div className="min-w-0">
               <span className="font-bold text-sm tracking-tight text-slate-900 truncate block">
-                {primaryOrActive?.studentName || 'Campus Track'}
+                Campus Track
               </span>
             </div>
           </div>
@@ -179,49 +161,113 @@ export const AppLayout: React.FC = () => {
             DYPIU Juno ERP Connected
           </div>
 
-          {/* Account Selector Dropdown & Sign out */}
-          <div className="flex items-center gap-2.5 ml-auto">
-            {accounts.length > 0 && activeAccount && (
+          {/* Right Header: Primary User Avatar & Accounts Menu with Logout */}
+          <div className="flex items-center gap-3 ml-auto">
+            {primaryOrActive && (
               <div className="relative group">
-                <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white shadow-sm transition-all text-xs font-medium">
-                  <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-                  <span className="font-semibold text-slate-800 max-w-[110px] sm:max-w-[180px] truncate">
-                    {activeAccount.studentName}
+                <button className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full border border-slate-200 hover:border-slate-300 bg-white shadow-sm transition-all text-xs font-medium">
+                  {/* Avatar image of primary user from Juno */}
+                  {avatarUrl && !imgError ? (
+                    <img
+                      src={avatarUrl}
+                      alt={primaryOrActive.studentName}
+                      onError={() => setImgError(true)}
+                      className="w-7 h-7 rounded-full object-cover border border-indigo-500 shrink-0 bg-slate-800"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                      {primaryOrActive.studentName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+
+                  <span className="font-bold text-slate-800 max-w-[100px] sm:max-w-[150px] truncate text-left">
+                    {primaryOrActive.studentName.split(' ')[0]}
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform group-hover:rotate-180" />
                 </button>
 
-                <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1">
-                  <p className="text-[11px] font-semibold text-slate-400 px-2.5 py-1 uppercase tracking-wider">
-                    Switch Active Account
-                  </p>
-                  <div className="flex flex-col gap-1 mt-1 max-h-56 overflow-y-auto">
-                    {accounts.map(acc => (
-                      <button
-                        key={acc.id}
-                        onClick={() => setActiveAccount(acc)}
-                        className={`text-left px-2.5 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
-                          acc.id === activeAccount.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span className="truncate">{acc.studentName}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-medium ml-1">
-                          {acc.attendancePercentage}%
-                        </span>
-                      </button>
-                    ))}
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1">
+                  {/* Primary Profile Header */}
+                  <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-100 mb-2">
+                    {avatarUrl && !imgError ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Profile"
+                        className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        {primaryOrActive.studentName.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-extrabold text-xs text-slate-900 truncate">
+                        {primaryOrActive.studentName}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {primaryOrActive.prn} • Primary
+                      </p>
+                      <span className="inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-bold">
+                        {primaryOrActive.attendancePercentage}% Attendance
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Connected Accounts Switcher */}
+                  {accounts.length > 1 && (
+                    <div className="mb-2">
+                      <p className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
+                        Switch Student ({accounts.length})
+                      </p>
+                      <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
+                        {accounts.map(acc => {
+                          const isCurActive = acc.id === (activeAccount?.id || primaryAccount?.id);
+                          const accImg = api.getAccountImageUrl(acc.id);
+
+                          return (
+                            <button
+                              key={acc.id}
+                              onClick={() => setActiveAccount(acc)}
+                              className={`text-left p-2 rounded-xl text-xs transition-all flex items-center gap-2.5 ${
+                                isCurActive
+                                  ? 'bg-indigo-50 text-indigo-700 font-bold shadow-xs'
+                                  : 'text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              <img
+                                src={accImg}
+                                alt=""
+                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                className="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs">{acc.studentName}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{acc.prn}</p>
+                              </div>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-700 shrink-0">
+                                {acc.attendancePercentage}%
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Logout Button */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <button
+                      onClick={logout}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Sign Out from Campus Track
+                    </button>
                   </div>
                 </div>
               </div>
             )}
-
-            <button
-              onClick={logout}
-              className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-all"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
         </header>
 

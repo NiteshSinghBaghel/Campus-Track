@@ -150,6 +150,16 @@ class MultiAccountService {
       throw new Error('Explicit student consent is required to link this account.');
     }
 
+    // Check if this student account (PRN or Email) is already linked in this user's workspace
+    const existingAccounts = this.getAccounts(params.userId);
+    const alreadyLinked = existingAccounts.find(
+      a => a.prn.toLowerCase() === params.username.toLowerCase() ||
+           a.email.toLowerCase() === params.username.toLowerCase()
+    );
+    if (alreadyLinked) {
+      throw new Error(`This account (${alreadyLinked.studentName || params.username}) is already connected in your workspace.`);
+    }
+
     const adapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in', true);
     const ok = await adapter.authenticate(params.username, params.password);
 
@@ -195,12 +205,35 @@ class MultiAccountService {
     this.adapters.set(id, adapter);
     persistAccounts(this.accounts);
 
+    // Also check if PRN or email matches after profile is resolved
+    const duplicateProfile = existingAccounts.find(
+      a => a.id !== id && (
+        (profile.prn && a.prn.toLowerCase() === profile.prn.toLowerCase()) ||
+        (profile.email && a.email.toLowerCase() === profile.email.toLowerCase())
+      )
+    );
+    if (duplicateProfile) {
+      this.accounts.delete(id);
+      this.adapters.delete(id);
+      persistAccounts(this.accounts);
+      throw new Error(`This student profile (${profile.studentName} - ${profile.prn}) is already connected as an account.`);
+    }
+
     return { account, profile };
   }
+
+  private attendanceCache = new Map<string, { summary: AttendanceSummary; expiresAt: number }>();
 
   async syncAccountAttendance(accountId: string, termId?: string): Promise<AttendanceSummary> {
     const account = this.accounts.get(accountId);
     if (!account) throw new Error('Account not found');
+
+    const cacheKey = `${accountId}:${termId || 'default'}`;
+    const cached = this.attendanceCache.get(cacheKey);
+    // Return cached attendance if fresh (< 3 minutes)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.summary;
+    }
 
     try {
       const adapter = await this.getReadyAdapter(accountId);
@@ -210,6 +243,13 @@ class MultiAccountService {
       account.connectionStatus = 'CONNECTED';
       this.accounts.set(accountId, account);
       persistAccounts(this.accounts);
+
+      // Cache for 3 minutes for high-speed instant response
+      this.attendanceCache.set(cacheKey, {
+        summary,
+        expiresAt: Date.now() + 3 * 60 * 1000
+      });
+
       return summary;
     } catch (err) {
       // If live ERP session expired, still return latest cached/curriculum attendance
