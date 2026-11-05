@@ -24,7 +24,10 @@ const LOCAL_ACTIVE_ID_KEY = 'campustrack_active_account_id';
 const LOCAL_USER_KEY = 'campustrack_auth_user';
 
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const hasToken = Boolean(authStorage.getToken());
+
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
+    if (!hasToken) return null;
     try {
       const cached = localStorage.getItem(LOCAL_USER_KEY);
       return cached ? JSON.parse(cached) : null;
@@ -34,6 +37,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const [accounts, setAccounts] = useState<StudentAccount[]>(() => {
+    if (!hasToken) return [];
     try {
       const cached = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
       return cached ? JSON.parse(cached) : [];
@@ -43,6 +47,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const [activeAccount, setActiveAccountState] = useState<StudentAccount | null>(() => {
+    if (!hasToken) return null;
     try {
       const cachedAccounts = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
       const activeId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
@@ -87,6 +92,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.removeItem(LOCAL_USER_KEY);
       localStorage.removeItem(LOCAL_ACCOUNTS_KEY);
       localStorage.removeItem(LOCAL_ACTIVE_ID_KEY);
+      localStorage.removeItem('campustrack_attendance_cache');
+      localStorage.removeItem('campustrack_timetable_cache');
     } catch {}
     setAuthUser(null);
     setAccounts([]);
@@ -96,6 +103,9 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const refreshAccounts = async () => {
     const token = authStorage.getToken();
     if (!token) {
+      setAccounts([]);
+      setActiveAccountState(null);
+      setAuthUser(null);
       setLoading(false);
       return;
     }
@@ -125,8 +135,12 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const primary = safeList.find(a => a.isPrimary);
         return primary || safeList[0];
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load accounts:', err);
+      // If 401 or backend says invalid token/unauthorized, force logout immediately
+      if (err?.message?.includes('401') || err?.message?.includes('Authentication required') || err?.message?.includes('Invalid or expired')) {
+        logout();
+      }
     } finally {
       setLoading(false);
     }
