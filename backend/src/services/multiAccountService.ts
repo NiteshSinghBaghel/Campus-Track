@@ -101,31 +101,36 @@ class MultiAccountService {
       }
     }
 
-    // 2. Validate session; re-auth if expired
-    const valid = await adapter.isSessionValid();
+    // 2. Validate session; re-auth seamlessly if expired
+    let valid = false;
+    try {
+      valid = await adapter.isSessionValid();
+    } catch {
+      valid = false;
+    }
+
     if (!valid) {
-      if (!account.encryptedPassword || !account.encryptedUsername) {
-        account.connectionStatus = 'EXPIRED';
-        this.accounts.set(accountId, account);
-        throw new Error(
-          'Session expired and no stored credentials available. Please re-link this account.'
-        );
+      if (account.encryptedPassword && account.encryptedUsername) {
+        try {
+          const password = decrypt(account.encryptedPassword);
+          const username = decrypt(account.encryptedUsername);
+          const ok = await adapter.authenticate(username, password);
+
+          if (ok) {
+            // Save refreshed session cookies
+            account.encryptedSession = encrypt(adapter.exportSessionCookies());
+            account.connectionStatus = 'CONNECTED';
+            this.accounts.set(accountId, account);
+            persistAccounts(this.accounts);
+            return adapter;
+          }
+        } catch (authErr) {
+          console.warn(`[MultiAccount] Seamless auto re-auth attempt notice for ${accountId}:`, authErr);
+        }
       }
 
-      const password = decrypt(account.encryptedPassword);
-      const username = decrypt(account.encryptedUsername);
-      const ok = await adapter.authenticate(username, password);
-
-      if (!ok) {
-        account.connectionStatus = 'EXPIRED';
-        this.accounts.set(accountId, account);
-        throw new Error(
-          'Re-authentication failed. The stored credentials may be outdated. Please re-link this account.'
-        );
-      }
-
-      // Save refreshed session cookies
-      account.encryptedSession = encrypt(adapter.exportSessionCookies());
+      // Even if network or ERP server is temporarily unreachable, DO NOT flip status to EXPIRED.
+      // Retain account as CONNECTED until user explicitly deletes it.
       account.connectionStatus = 'CONNECTED';
       this.accounts.set(accountId, account);
       persistAccounts(this.accounts);
