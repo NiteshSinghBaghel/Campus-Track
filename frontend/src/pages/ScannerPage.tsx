@@ -6,9 +6,7 @@ import { GroupAttendanceBatchResponse } from '../types/index.js';
 import { Html5Qrcode } from 'html5-qrcode';
 import {
   ArrowLeft,
-  Clock,
-  Maximize,
-  Minimize,
+  QrCode,
   Users,
   Flashlight,
   FlashlightOff,
@@ -248,42 +246,37 @@ export const ScannerPage: React.FC = () => {
       className="relative w-full h-screen bg-black text-white overflow-hidden flex flex-col justify-between select-none"
     >
       {/* Top Header Bar */}
-      <div className="relative z-20 flex items-center justify-between px-5 py-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent">
+      <div className="relative z-20 flex items-center justify-between px-5 py-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
         <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2.5 text-white hover:text-white/80 transition-all text-sm font-semibold tracking-wide"
+          onClick={() => navigate('/')}
+          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all shadow-md"
+          title="Back to Dashboard"
         >
           <ArrowLeft className="w-5 h-5 text-white" />
-          <span className="truncate max-w-[130px] sm:max-w-none">Mark Attenda...</span>
         </button>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {/* Torch Toggle */}
           <button
-            onClick={() => navigate('/attendance')}
-            className="p-1.5 text-white/80 hover:text-white transition-all"
-            title="Attendance History"
+            onClick={toggleTorch}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${
+              torchOn
+                ? 'bg-amber-400 text-black shadow-[0_0_12px_#f59e0b]'
+                : 'bg-white/10 hover:bg-white/20 text-white/90 backdrop-blur-md'
+            }`}
+            title={torchOn ? 'Turn off light' : 'Turn on light'}
           >
-            <Clock className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={toggleFullscreen}
-            className="p-1.5 text-white/80 hover:text-white transition-all"
-            title="Toggle Fullscreen"
-          >
-            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+            {torchOn ? <Flashlight className="w-5 h-5 fill-current" /> : <FlashlightOff className="w-5 h-5" />}
           </button>
 
           {/* User Counter Badge with green pill */}
           <button
             onClick={() => setShowSwitchModal(true)}
-            className="relative p-1 text-white/80 hover:text-white transition-all"
+            className="h-10 px-3.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center gap-2 text-white transition-all shadow-md"
             title="Select & Manage Accounts"
           >
-            <Users className="w-5 h-5" />
-            <span className="absolute -top-1.5 -right-2 bg-[#22c55e] text-black font-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow-[0_0_8px_#22c55e]">
-              {selectedAccounts.length}
-            </span>
+            <Users className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-bold">{selectedAccounts.length}</span>
           </button>
         </div>
       </div>
@@ -310,17 +303,22 @@ export const ScannerPage: React.FC = () => {
         )}
       </div>
 
-      {/* Center Target Box Overlay with Glowing Green Neon Reticle */}
+      {/* Center Target Box Overlay with Clean Minimal QR Scanner Reticle */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center pointer-events-none px-4">
-        <div className="relative w-64 h-64 sm:w-72 sm:h-72">
+        <div className="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
           {/* Top-Left Corner */}
-          <div className="absolute top-0 left-0 w-12 h-12 border-t-[3.5px] border-l-[3.5px] border-[#22c55e] rounded-tl-[24px] shadow-[0_0_12px_#22c55e]" />
+          <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-[#22c55e] rounded-tl-2xl shadow-[0_0_12px_#22c55e]" />
           {/* Top-Right Corner */}
-          <div className="absolute top-0 right-0 w-12 h-12 border-t-[3.5px] border-r-[3.5px] border-[#22c55e] rounded-tr-[24px] shadow-[0_0_12px_#22c55e]" />
+          <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-[#22c55e] rounded-tr-2xl shadow-[0_0_12px_#22c55e]" />
           {/* Bottom-Left Corner */}
-          <div className="absolute bottom-0 left-0 w-12 h-12 border-b-[3.5px] border-l-[3.5px] border-[#22c55e] rounded-bl-[24px] shadow-[0_0_12px_#22c55e]" />
+          <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-[#22c55e] rounded-bl-2xl shadow-[0_0_12px_#22c55e]" />
           {/* Bottom-Right Corner */}
-          <div className="absolute bottom-0 right-0 w-12 h-12 border-b-[3.5px] border-r-[3.5px] border-[#22c55e] rounded-br-[24px] shadow-[0_0_12px_#22c55e]" />
+          <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-[#22c55e] rounded-br-2xl shadow-[0_0_12px_#22c55e]" />
+
+          {/* Clean Scanner Icon in the Center */}
+          <div className="opacity-20 flex flex-col items-center justify-center pointer-events-none">
+            <QrCode className="w-20 h-20 text-white" />
+          </div>
 
           {/* Animated Neon Green Laser Scanning Line */}
           {isScanning && (
@@ -336,7 +334,7 @@ export const ScannerPage: React.FC = () => {
 
         {/* Loading Indicator while Submitting */}
         {loading && (
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 backdrop-blur-md shadow-2xl animate-pulse">
+          <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 backdrop-blur-md shadow-2xl animate-pulse">
             <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin" />
             <span className="text-xs font-bold text-emerald-300">
               Submitting attendance for {selectedAccounts.length} students...
@@ -356,77 +354,31 @@ export const ScannerPage: React.FC = () => {
         )}
 
         {/* Reticle Instruction Pill */}
-        <div className="mt-5 px-5 py-2 rounded-full bg-[#18181b]/90 border border-white/10 backdrop-blur-md text-xs font-medium text-white/95 shadow-lg tracking-wide">
-          Align classroom QR inside frame
+        <div className="mt-5 px-4 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md text-xs font-medium text-white/90 shadow-lg tracking-wide flex items-center gap-2">
+          <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Point at faculty QR code</span>
         </div>
 
         {/* Selected Accounts Pill with Switch Button */}
-        <div className="mt-3.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18181b]/90 border border-white/15 backdrop-blur-md shadow-xl pointer-events-auto">
+        <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md shadow-xl pointer-events-auto">
           <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse shadow-[0_0_8px_#22c55e]" />
           <span className="text-xs font-semibold text-white/90">
-            Accounts ({selectedAccounts.length}/{accounts.length})
+            {selectedAccounts.length} Student{selectedAccounts.length === 1 ? '' : 's'} Selected
           </span>
           <button
             onClick={() => setShowSwitchModal(true)}
-            className="ml-1 px-3 py-0.5 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-[11px] font-bold text-white transition-all border border-white/10"
+            className="ml-1 px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-emerald-300 transition-all border border-white/10"
           >
-            Switch
+            Change
           </button>
         </div>
       </div>
 
-      {/* Bottom Controls Area (Zoom Bar & Torch) */}
-      <div className="relative z-20 flex flex-col items-center pb-8 pt-4 px-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent space-y-4">
-        {/* Floating Capsule Zoom Control */}
-        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#18181b]/90 border border-white/15 backdrop-blur-md shadow-2xl">
-          <button
-            onClick={() => applyZoom(1.0)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-              zoomLevel === 1.0 ? 'bg-white text-black shadow-md' : 'text-white/80 hover:text-white'
-            }`}
-          >
-            1×
-          </button>
-
-          <button
-            onClick={() => applyZoom(2.0)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-              zoomLevel === 2.0 ? 'bg-white text-black shadow-md' : 'text-white/80 hover:text-white'
-            }`}
-          >
-            2×
-          </button>
-
-          {/* Range Slider Track */}
-          <div className="relative flex items-center w-28 sm:w-36 px-1">
-            <input
-              type="range"
-              min="1.0"
-              max="4.0"
-              step="0.1"
-              value={zoomLevel}
-              onChange={e => applyZoom(parseFloat(e.target.value))}
-              className="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white"
-            />
-          </div>
-
-          <span className="text-[11px] font-mono text-white/80 w-8 text-right font-medium">
-            {zoomLevel.toFixed(1)}×
-          </span>
+      {/* Clean Bottom Area */}
+      <div className="relative z-20 pb-8 pt-3 px-4 flex justify-center">
+        <div className="text-[11px] text-white/40 tracking-wider uppercase font-semibold">
+          Auto-marks present upon scan
         </div>
-
-        {/* Circular Torch / Flashlight Button */}
-        <button
-          onClick={toggleTorch}
-          className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all shadow-xl ${
-            torchOn
-              ? 'bg-amber-400 border-amber-300 text-black shadow-[0_0_15px_#f59e0b]'
-              : 'bg-[#18181b]/90 border-white/20 text-white/90 hover:bg-white/10 hover:border-white/40'
-          }`}
-          title={torchOn ? 'Turn off light' : 'Turn on light'}
-        >
-          {torchOn ? <Flashlight className="w-5 h-5 fill-current" /> : <FlashlightOff className="w-5 h-5" />}
-        </button>
       </div>
 
       {/* Switch Accounts Modal (Select & Deselect Registered Student Profiles) */}
