@@ -1,7 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccounts } from '../context/AccountContext.js';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Shield, Lock, User, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import {
+  Sparkles,
+  Shield,
+  Lock,
+  User,
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Download,
+  Share,
+  PlusSquare,
+  Check
+} from 'lucide-react';
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 export const LoginPage: React.FC = () => {
   const { login } = useAccounts();
@@ -10,6 +27,58 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+
+  useEffect(() => {
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+      setIsInstalled(true);
+      return;
+    }
+
+    // Detect iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isIosDevice);
+
+    // Listen for beforeinstallprompt event (Chrome, Android, Edge)
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        setIsInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else if (isIOS) {
+      setShowIOSInstructions(prev => !prev);
+    } else {
+      // General instructions modal/alert for browsers that don't support beforeinstallprompt
+      alert('To install Campus Track app:\n\n• On Chrome / Android: tap 3-dots (menu) → "Add to Home screen" or "Install App".\n• On iPhone: tap Share icon → "Add to Home Screen".');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +100,52 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 flex items-center justify-center p-4 selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 selection:bg-indigo-500 selection:text-white relative">
+      {/* Top Banner: Install App Button */}
+      {!isInstalled && (
+        <div className="w-full max-w-md mb-4 animate-in fade-in slide-in-from-top-3">
+          <div className="bg-slate-900/90 border border-indigo-500/30 rounded-2xl p-3 flex items-center justify-between shadow-xl backdrop-blur-md">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 flex items-center justify-center text-white shrink-0 shadow-md">
+                <Download className="w-4 h-4 animate-bounce" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">Install Campus Track App</p>
+                <p className="text-[10px] text-indigo-300 truncate">Add to phone home screen (PWA)</p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleInstallClick}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-white font-extrabold text-xs shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition-all shrink-0 active:scale-95 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Install
+            </button>
+          </div>
+
+          {/* iOS Safari Instructions Accordion */}
+          {showIOSInstructions && isIOS && (
+            <div className="mt-2 p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-2 animate-in fade-in">
+              <p className="font-bold text-white flex items-center gap-1.5">
+                <Share className="w-3.5 h-3.5 text-indigo-400" /> Install on iPhone / Safari:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+                <li>Tap the <strong>Share</strong> button at bottom of Safari</li>
+                <li>Scroll down and tap <strong>"Add to Home Screen"</strong> <PlusSquare className="w-3 h-3 inline text-slate-400" /></li>
+                <li>Tap <strong>"Add"</strong> in top right corner</li>
+              </ol>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isInstalled && (
+        <div className="w-full max-w-md mb-4 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 py-1.5 px-3 rounded-full">
+          <Check className="w-3.5 h-3.5" /> App installed on your device
+        </div>
+      )}
+
       <div className="w-full max-w-md">
         {/* App Branding Header */}
         <div className="text-center mb-8">
@@ -138,4 +252,3 @@ export const LoginPage: React.FC = () => {
     </div>
   );
 };
-
