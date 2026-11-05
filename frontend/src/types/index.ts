@@ -9,6 +9,13 @@ export interface StudentAccount {
   connectionStatus: 'CONNECTED' | 'DISCONNECTED' | 'EXPIRED' | 'ERROR';
   lastSyncedAt?: string;
   attendancePercentage: number;
+  avatarUrl?: string;
+}
+
+export interface AuthUser {
+  userId: string;
+  email?: string;
+  primaryAccount: StudentAccount | null;
 }
 
 export interface SubjectAttendance {

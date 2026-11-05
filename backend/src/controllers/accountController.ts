@@ -73,6 +73,22 @@ export const accountController = {
       return;
     }
     res.json({ success: true, message: 'Account removed successfully' });
+  },
+
+  async getAccountImage(req: AuthenticatedRequest, res: Response) {
+    try {
+      const accountId = req.params.id as string;
+      const imgData = await multiAccountService.getAccountImageBuffer(accountId);
+      if (!imgData || !imgData.buffer) {
+        res.status(404).send('Profile image not found');
+        return;
+      }
+      res.setHeader('Content-Type', imgData.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(imgData.buffer);
+    } catch (err) {
+      res.status(500).send('Failed to fetch image');
+    }
   }
 };
 

@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { StudentAccount } from '../types/index.js';
-import { api } from '../services/api.js';
+import { StudentAccount, AuthUser } from '../types/index.js';
+import { api, authStorage } from '../services/api.js';
 
 interface AccountContextType {
   accounts: StudentAccount[];
   activeAccount: StudentAccount | null;
   primaryAccount: StudentAccount | null;
+  authUser: AuthUser | null;
+  isAuthenticated: boolean;
   loading: boolean;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => void;
   setActiveAccount: (account: StudentAccount) => void;
   refreshAccounts: () => Promise<void>;
   syncAccount: (id: string) => Promise<void>;
@@ -17,8 +21,18 @@ const AccountContext = createContext<AccountContextType | undefined>(undefined);
 
 const LOCAL_ACCOUNTS_KEY = 'campustrack_accounts_cache';
 const LOCAL_ACTIVE_ID_KEY = 'campustrack_active_account_id';
+const LOCAL_USER_KEY = 'campustrack_auth_user';
 
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
+    try {
+      const cached = localStorage.getItem(LOCAL_USER_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [accounts, setAccounts] = useState<StudentAccount[]>(() => {
     try {
       const cached = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
@@ -47,7 +61,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
 
-  const [loading, setLoading] = useState(accounts.length === 0);
+  const [loading, setLoading] = useState(true);
 
   const primaryAccount = accounts.find(a => a.isPrimary) || (accounts.length > 0 ? accounts[0] : null);
 
@@ -58,9 +72,35 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {}
   };
 
-  const refreshAccounts = async () => {
+  const login = async (username: string, password: string) => {
+    const res = await api.login({ username, password });
+    setAuthUser(res.user);
     try {
-      if (accounts.length === 0) setLoading(true);
+      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(res.user));
+    } catch {}
+    await refreshAccounts();
+  };
+
+  const logout = () => {
+    authStorage.removeToken();
+    try {
+      localStorage.removeItem(LOCAL_USER_KEY);
+      localStorage.removeItem(LOCAL_ACCOUNTS_KEY);
+      localStorage.removeItem(LOCAL_ACTIVE_ID_KEY);
+    } catch {}
+    setAuthUser(null);
+    setAccounts([]);
+    setActiveAccountState(null);
+  };
+
+  const refreshAccounts = async () => {
+    const token = authStorage.getToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
       const list = await api.getAccounts();
       const safeList = list || [];
       setAccounts(safeList);
@@ -103,8 +143,15 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   useEffect(() => {
-    refreshAccounts();
+    const token = authStorage.getToken();
+    if (token) {
+      refreshAccounts();
+    } else {
+      setLoading(false);
+    }
   }, []);
+
+  const isAuthenticated = Boolean(authStorage.getToken());
 
   return (
     <AccountContext.Provider
@@ -112,7 +159,11 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         accounts,
         activeAccount,
         primaryAccount,
+        authUser,
+        isAuthenticated,
         loading,
+        login,
+        logout,
         setActiveAccount,
         refreshAccounts,
         syncAccount,
@@ -129,4 +180,3 @@ export const useAccounts = () => {
   if (!context) throw new Error('useAccounts must be used within an AccountProvider');
   return context;
 };
-

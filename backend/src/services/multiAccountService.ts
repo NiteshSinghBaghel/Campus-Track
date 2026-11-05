@@ -67,7 +67,7 @@ class MultiAccountService {
 
   getAccounts(userId: string): ConnectedAccountRecord[] {
     return Array.from(this.accounts.values()).filter(
-      a => a.userId === userId || a.userId === 'user-default'
+      a => a.userId === userId
     );
   }
 
@@ -239,6 +239,16 @@ class MultiAccountService {
   async getAccountProfile(accountId: string): Promise<StudentProfile> {
     const adapter = await this.getReadyAdapter(accountId);
     return adapter.getStudentProfile();
+  }
+
+  async getAccountImageBuffer(accountId: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+    try {
+      const adapter = await this.getReadyAdapter(accountId);
+      return await adapter.getProfileImageBuffer();
+    } catch (e) {
+      console.warn(`[MultiAccountService] getAccountImageBuffer failed for ${accountId}:`, e);
+      return null;
+    }
   }
 
   removeAccount(id: string): boolean {

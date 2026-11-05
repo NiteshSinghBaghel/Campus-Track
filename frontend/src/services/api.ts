@@ -2,28 +2,54 @@ import {
   StudentAccount,
   AttendanceSummary,
   TimetableSlot,
-  GroupAttendanceBatchResponse
+  GroupAttendanceBatchResponse,
+  AuthUser
 } from '../types/index.js';
 
 // In production, VITE_API_BASE_URL points to Render backend (e.g. https://campus-track-backend.onrender.com)
 // In local dev, we use the Vite proxy at /api -> http://127.0.0.1:5005
-const API_BASE = import.meta.env.VITE_API_BASE_URL
+export const API_BASE = import.meta.env.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL}/api`
   : '/api';
 
+const TOKEN_KEY = 'campustrack_jwt_token';
+
+export const authStorage = {
+  getToken(): string | null {
+    try {
+      return localStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  },
+  setToken(token: string) {
+    try {
+      localStorage.setItem(TOKEN_KEY, token);
+    } catch {}
+  },
+  removeToken() {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {}
+  }
+};
+
 /**
- * Robust fetch wrapper that gracefully handles:
- * - HTML error responses (502, 503, 504 from Vite proxy or server)
- * - Network failures / backend down
- * - JSON parse errors
+ * Robust fetch wrapper with authorization header injection
  */
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = authStorage.getToken();
+  const headers = new Headers(options?.headers || {});
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   let res: Response;
   try {
-    res = await fetch(url, options);
+    res = await fetch(url, { ...options, headers });
   } catch (err: any) {
     throw new Error(
-      'Backend server is not reachable. Please try again later.'
+      'Backend server is not reachable. Please check your network connection.'
     );
   }
 
@@ -37,7 +63,6 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
       data = null;
     }
   } else {
-    // Response is HTML or plain text (e.g. 502/504 proxy error)
     const text = await res.text();
     try {
       data = JSON.parse(text);
@@ -63,6 +88,31 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getAccountImageUrl(accountId: string): string {
+    return `${API_BASE}/accounts/${accountId}/image`;
+  },
+
+  async login(params: { username: string; password: string }): Promise<{ token: string; user: AuthUser }> {
+    const data = await request<{ success: boolean; token: string; user: AuthUser }>(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+    if (data.token) {
+      authStorage.setToken(data.token);
+    }
+    return { token: data.token, user: data.user };
+  },
+
+  async getMe(): Promise<{ user: AuthUser } | null> {
+    try {
+      const data = await request<{ success: boolean; user: AuthUser }>(`${API_BASE}/auth/me`);
+      return { user: data.user };
+    } catch {
+      return null;
+    }
+  },
+
   async getAccounts(): Promise<StudentAccount[]> {
     try {
       const data = await request<{ success: boolean; accounts: StudentAccount[] }>(`${API_BASE}/accounts`);

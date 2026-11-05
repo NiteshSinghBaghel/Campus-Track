@@ -7,6 +7,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import {
   ArrowLeft,
   Clock,
+  Maximize,
+  Minimize,
   User,
   Flashlight,
   FlashlightOff,
@@ -31,6 +33,7 @@ export const ScannerPage: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [torchOn, setTorchOn] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [challengeAnswers, setChallengeAnswers] = useState<Record<string, string>>({});
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -116,6 +119,17 @@ export const ScannerPage: React.FC = () => {
       }
     } catch {}
     setTorchOn(prev => !prev);
+  };
+
+  // Toggle Fullscreen
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen?.().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+      setIsFullscreen(false);
+    }
   };
 
   // Submit attendance for target accounts
@@ -275,14 +289,26 @@ export const ScannerPage: React.FC = () => {
           </h1>
         </div>
 
-        {/* Right: Clock Icon + Profile/User Icon with Green Badge */}
-        <div className="flex items-center gap-4">
+        {/* Right: Clock Icon + Fullscreen + Profile/User Icon with Green Badge */}
+        <div className="flex items-center gap-3.5">
           <button
             onClick={() => navigate('/timetable')}
             className="text-white/90 hover:text-white transition-opacity p-1"
             title="Timetable / Schedule"
           >
-            <Clock className="w-6 h-6 stroke-[2]" />
+            <Clock className="w-5 h-5 stroke-[2]" />
+          </button>
+
+          <button
+            onClick={toggleFullscreen}
+            className="text-white/90 hover:text-white transition-opacity p-1"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          >
+            {isFullscreen ? (
+              <Minimize className="w-5 h-5 stroke-[2]" />
+            ) : (
+              <Maximize className="w-5 h-5 stroke-[2]" />
+            )}
           </button>
 
           <button
@@ -290,7 +316,7 @@ export const ScannerPage: React.FC = () => {
             className="relative text-white/90 hover:text-white transition-opacity p-1"
             title="Switch Accounts"
           >
-            <User className="w-6 h-6 stroke-[2]" />
+            <User className="w-5 h-5 stroke-[2]" />
             <span className="absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-[#22c55e] text-black text-[10px] font-black flex items-center justify-center leading-none">
               {selectedAccounts.length}
             </span>
