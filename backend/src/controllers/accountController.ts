@@ -12,7 +12,11 @@ const linkAccountSchema = z.object({
 
 export const accountController = {
   getAccounts(req: AuthenticatedRequest, res: Response) {
-    const userId = req.user?.userId || 'user-default';
+    if (!req.user || !req.user.userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized. Please login.' });
+      return;
+    }
+    const userId = req.user.userId;
     const accounts = multiAccountService.getAccounts(userId);
     // Strip sensitive encrypted password from API response
     const sanitized = accounts.map(({ encryptedPassword, encryptedSession, ...rest }) => rest);

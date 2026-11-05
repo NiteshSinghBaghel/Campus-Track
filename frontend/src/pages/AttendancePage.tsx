@@ -20,7 +20,14 @@ import {
 
 export const AttendancePage: React.FC = () => {
   const { accounts, activeAccount, primaryAccount, setActiveAccount, syncAccount } = useAccounts();
-  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(() => {
+    try {
+      const cached = localStorage.getItem('campustrack_attendance_cache');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SAFE' | 'WARNING'>('ALL');
@@ -39,7 +46,12 @@ export const AttendancePage: React.FC = () => {
     setError(null);
     setRequiresReauth(false);
     api.getAttendance(idToUse, termId || selectedSemester)
-      .then(data => setAttendance(data))
+      .then(data => {
+        setAttendance(data);
+        try {
+          localStorage.setItem('campustrack_attendance_cache', JSON.stringify(data));
+        } catch {}
+      })
       .catch(err => {
         setAttendance(null);
         const msg: string = err.message || '';

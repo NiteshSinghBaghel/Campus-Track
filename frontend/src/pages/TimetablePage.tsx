@@ -18,7 +18,14 @@ import {
 
 export const TimetablePage: React.FC = () => {
   const { primaryAccount } = useAccounts();
-  const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
+  const [timetable, setTimetable] = useState<TimetableSlot[]>(() => {
+    try {
+      const cached = localStorage.getItem('campustrack_timetable_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +47,12 @@ export const TimetablePage: React.FC = () => {
     setLoading(true);
     setError(null);
     api.getTimetable(primaryAccount.id, dateToUse)
-      .then(data => setTimetable(data))
+      .then(data => {
+        setTimetable(data);
+        try {
+          localStorage.setItem('campustrack_timetable_cache', JSON.stringify(data));
+        } catch {}
+      })
       .catch(err => {
         setTimetable([]);
         setError(err.message || 'Failed to fetch timetable');
