@@ -180,6 +180,7 @@ export class DYPIUJunoAdapter implements ERPAdapter {
 
       try {
         const res = await this.api.get('/stu_getAttendanceDetails.json', {
+          timeout: 2500,
           headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` }
         });
         const raw = safeParseJson(res.data);
@@ -203,6 +204,7 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         const courseRes = await this.api.get(
           `/stu_getSubjectOnChangeWithSemId1.json?termId=${encodeURIComponent(termToQuery)}&refreshData=0`,
           {
+            timeout: 2500,
             headers: { 'Referer': `${this.baseUrl}/studentCourseFileNew.htm` }
           }
         );
@@ -372,7 +374,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         if (date.includes('-')) {
           const parts = date.split('-');
           if (parts.length === 3 && parts[0].length === 4) {
-            // YYYY-MM-DD -> DD/MM/YYYY
             formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
           } else {
             formattedDate = date;
@@ -382,18 +383,10 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         }
       }
 
-      // 1. Prime session by loading the academic timetable page
-      try {
-        await this.api.get('/stu_academicTimetableStudent.htm', {
-          headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` }
-        });
-      } catch (e) {
-        if (this.debug) console.warn('[DYPIUJunoAdapter] Timetable page priming failed:', e);
-      }
-
-      // 2. Try today's schedule endpoint (requires primed session)
+      // Fast check: Try today's schedule endpoint with timeout
       try {
         const res = await this.api.get(`/stu_getTodaysScheduleForStudentLoggedIn.json?date=${encodeURIComponent(formattedDate)}`, {
+          timeout: 1800,
           headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` }
         });
         const data = safeParseJson(res.data);
@@ -404,19 +397,20 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             dayOfWeek: today.getDay() || 1,
             subjectName: item.subjectName || item.courseName || `Lecture ${idx + 1}`,
             facultyName: item.facultyName || item.faculty || 'Staff',
-            classroom: item.roomNo || item.classroom || 'LH-101',
+            classroom: item.roomNo || item.classroom || 'LH-201',
             startTime: item.startTime || item.fromTime || '09:30',
             endTime: item.endTime || item.toTime || '10:30'
           }));
         }
       } catch (e) {
-        if (this.debug) console.warn('[DYPIUJunoAdapter] Today schedule fetch failed:', e);
+        if (this.debug) console.warn('[DYPIUJunoAdapter] Fast today schedule fetch failed:', e);
       }
 
       // 3. Try block timetable via student personal info (academic timetable page API)
       try {
-        // Get bachSemId for block timetable lookup
+        // Try block timetable via student personal info
         const infoRes = await this.api.get('/stu_studentPersonalInformationData.json', {
+          timeout: 2000,
           headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` }
         });
         const infoData = safeParseJson(infoRes.data);
@@ -428,7 +422,7 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             // Get block sessions
             const blockRes = await this.api.get(
               `/loadDistinctBlockTimetableSession.json?batchSemesterCapacityIds=${bachSemId}`,
-              { headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` } }
+              { timeout: 2000, headers: { 'Referer': `${this.baseUrl}/stu_academicTimetableStudent.htm` } }
             );
             const blocks = safeParseJson(blockRes.data);
             const blockArr = Array.isArray(blocks) ? blocks : [];

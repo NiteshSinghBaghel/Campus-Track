@@ -101,7 +101,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 selection:bg-indigo-500 selection:text-white relative">
-      {/* Top Banner: Install App Button */}
+      {/* Top Banner: Install App Button (hidden completely once installed) */}
       {!isInstalled && (
         <div className="w-full max-w-md mb-4 animate-in fade-in slide-in-from-top-3">
           <div className="bg-slate-900/90 border border-indigo-500/30 rounded-2xl p-3 flex items-center justify-between shadow-xl backdrop-blur-md">
@@ -140,11 +140,7 @@ export const LoginPage: React.FC = () => {
         </div>
       )}
 
-      {isInstalled && (
-        <div className="w-full max-w-md mb-4 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 py-1.5 px-3 rounded-full">
-          <Check className="w-3.5 h-3.5" /> App installed on your device
-        </div>
-      )}
+      {/* Installed banner removed as requested */}
 
       <div className="w-full max-w-md">
         {/* App Branding Header */}
