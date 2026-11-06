@@ -18,11 +18,10 @@ export const AppLayout: React.FC = () => {
   const { accounts, activeAccount, primaryAccount, setActiveAccount, logout } = useAccounts();
   const location = useLocation();
   const isScannerPage = location.pathname === '/scanner';
-  const [imgError, setImgError] = useState(false);
-
-  useEffect(() => {
-    setImgError(false);
-  }, [primaryAccount?.id, activeAccount?.id]);
+  // Track per-account image errors so switching accounts resets correctly
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
+  // Track successfully loaded image URLs so they don't flash on re-render
+  const [loadedImgs, setLoadedImgs] = useState<Record<string, string>>({});
 
   if (isScannerPage) {
     return (
@@ -34,6 +33,10 @@ export const AppLayout: React.FC = () => {
 
   const primaryOrActive = primaryAccount || activeAccount;
   const avatarUrl = primaryOrActive ? api.getAccountImageUrl(primaryOrActive.id) : null;
+  const avatarKey = primaryOrActive?.id || '';
+  const hasImgError = imgErrors[avatarKey] || false;
+  // Use cached loaded src if available to prevent flash
+  const displayAvatarUrl = loadedImgs[avatarKey] || avatarUrl;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
@@ -171,11 +174,15 @@ export const AppLayout: React.FC = () => {
               <div className="relative group">
                 <button className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full border border-slate-200 hover:border-slate-300 bg-white shadow-sm transition-all text-xs font-medium">
                   {/* Avatar image of primary user from Juno */}
-                  {avatarUrl && !imgError ? (
+                  {avatarUrl && !hasImgError ? (
                     <img
-                      src={avatarUrl}
+                      key={avatarKey}
+                      src={displayAvatarUrl!}
                       alt={primaryOrActive.studentName}
-                      onError={() => setImgError(true)}
+                      onLoad={() => {
+                        if (avatarUrl) setLoadedImgs(prev => ({ ...prev, [avatarKey]: avatarUrl }));
+                      }}
+                      onError={() => setImgErrors(prev => ({ ...prev, [avatarKey]: true }))}
                       className="w-7 h-7 rounded-full object-cover border border-indigo-500 shrink-0 bg-slate-800"
                     />
                   ) : (
@@ -194,9 +201,10 @@ export const AppLayout: React.FC = () => {
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1">
                   {/* Primary Profile Header */}
                   <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-100 mb-2">
-                    {avatarUrl && !imgError ? (
+                    {avatarUrl && !hasImgError ? (
                       <img
-                        src={avatarUrl}
+                        key={`dd-${avatarKey}`}
+                        src={displayAvatarUrl!}
                         alt="Profile"
                         className="w-10 h-10 rounded-full object-cover border-2 border-indigo-500 shrink-0"
                       />

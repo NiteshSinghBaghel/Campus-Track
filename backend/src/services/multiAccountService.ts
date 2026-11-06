@@ -3,8 +3,54 @@ import { ERPAdapter, StudentProfile, AttendanceSummary, TimetableSlot, ExamResul
 import { encrypt, decrypt } from '../utils/crypto.js';
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
 
 import { fileURLToPath } from 'url';
+
+// ─── KVdb helpers (no npm dep, plain https) ───────────────────────────────────
+const KVDB_BUCKET = process.env.KVDB_BUCKET_ID || 'FZbHKEPG8PJqBTnNiWGPSa';
+
+function kvKey(userId: string) {
+  return `campus_track_user_${userId}`;
+}
+
+function kvGet(userId: string): Promise<ConnectedAccountRecord[] | null> {
+  return new Promise((resolve) => {
+    const url = `https://kvdb.io/${KVDB_BUCKET}/${kvKey(userId)}`;
+    https.get(url, (res) => {
+      let body = '';
+      res.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      res.on('end', () => {
+        if (res.statusCode === 200 && body && body.trim() !== '') {
+          try {
+            const parsed = JSON.parse(body);
+            if (Array.isArray(parsed)) { resolve(parsed); return; }
+          } catch {}
+        }
+        resolve(null);
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
+function kvPut(userId: string, records: ConnectedAccountRecord[]): void {
+  try {
+    const body = Buffer.from(JSON.stringify(records));
+    const url = new URL(`https://kvdb.io/${KVDB_BUCKET}/${kvKey(userId)}`);
+    const req = https.request({
+      hostname: url.hostname,
+      path: url.pathname,
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': body.length
+      }
+    }, () => {});
+    req.on('error', () => {});
+    req.write(body);
+    req.end();
+  } catch {}
+}
 
 export interface ConnectedAccountRecord {
   id: string;
@@ -91,20 +137,74 @@ function persistAccounts(accounts: Map<string, ConnectedAccountRecord>) {
     console.warn('[MultiAccountService] Failed to save accounts to file:', e);
   }
 
-  // Also log the base64 for Render env var update hint (only if has accounts)
+  // Persist per-user to KVdb cloud (non-blocking, fire-and-forget)
+  const byUser = new Map<string, ConnectedAccountRecord[]>();
+  for (const acc of data) {
+    if (!acc.userId) continue;
+    if (!byUser.has(acc.userId)) byUser.set(acc.userId, []);
+    byUser.get(acc.userId)!.push(acc);
+  }
+  for (const [userId, records] of byUser) {
+    kvPut(userId, records);
+  }
+
   if (data.length > 0) {
-    const b64 = Buffer.from(serialized).toString('base64');
-    console.log(`[MultiAccountService] Saved ${data.length} accounts. ACCOUNTS_DATA (first 80): ${b64.slice(0, 80)}...`);
+    console.log(`[MultiAccountService] Saved ${data.length} accounts (${byUser.size} users) to local + KVdb cloud.`);
   }
 }
 
 class MultiAccountService {
   private accounts = loadPersistedAccounts();
   private adapters = new Map<string, DYPIUJunoAdapter>();
+  private cloudLoadedUsers = new Set<string>();
+
+  /**
+   * Load a user's accounts from KVdb cloud if not already in memory.
+   * Called on login and on getAccounts to ensure cross-device sync.
+   */
+  async loadUserFromCloud(userId: string): Promise<void> {
+    if (!userId || this.cloudLoadedUsers.has(userId)) return;
+    this.cloudLoadedUsers.add(userId);
+
+    // If we already have accounts for this user locally, skip cloud
+    const local = Array.from(this.accounts.values()).filter(a => a.userId === userId);
+    if (local.length > 0) return;
+
+    try {
+      console.log(`[MultiAccountService] Loading user ${userId} from KVdb cloud...`);
+      const cloudRecords = await kvGet(userId);
+      if (cloudRecords && cloudRecords.length > 0) {
+        let merged = 0;
+        for (const rec of cloudRecords) {
+          if (rec.id && !this.accounts.has(rec.id)) {
+            rec.userId = userId;
+            this.accounts.set(rec.id, rec);
+            merged++;
+          }
+        }
+        if (merged > 0) {
+          console.log(`[MultiAccountService] Restored ${merged} accounts from cloud for user ${userId}`);
+          // Save to local disk too
+          persistAccounts(this.accounts);
+        }
+      }
+    } catch (e) {
+      console.warn('[MultiAccountService] Cloud load failed:', e);
+    }
+  }
 
   getAccounts(userId: string): ConnectedAccountRecord[] {
     if (!userId) return [];
     return Array.from(this.accounts.values()).filter(a => a.userId === userId);
+  }
+
+  /**
+   * Async version that ensures cloud data is loaded first (used on login)
+   */
+  async getAccountsWithCloudSync(userId: string): Promise<ConnectedAccountRecord[]> {
+    if (!userId) return [];
+    await this.loadUserFromCloud(userId);
+    return this.getAccounts(userId);
   }
 
   getAccount(id: string): ConnectedAccountRecord | undefined {

@@ -108,10 +108,11 @@ export const AttendancePage: React.FC = () => {
   const { accounts, activeAccount, primaryAccount, setActiveAccount } = useAccounts();
   const currentAccount = activeAccount || primaryAccount;
 
-  // Instant render: Load from local cache or default immediately (0ms wait)
-  const [attendance, setAttendance] = useState<AttendanceSummary>(() => {
+  // Per-account attendance: load from per-account localStorage cache, NOT shared cache
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(() => {
+    if (!currentAccount?.id) return null;
     try {
-      const cached = localStorage.getItem('campustrack_attendance_cache');
+      const cached = localStorage.getItem(`campustrack_att_${currentAccount.id}`);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && Array.isArray(parsed.subjects) && parsed.subjects.length > 0) {
@@ -119,33 +120,85 @@ export const AttendancePage: React.FC = () => {
         }
       }
     } catch {}
-    return DEFAULT_ATTENDANCE;
+    return null;
   });
 
   const [activeTab, setActiveTab] = useState<'subjects' | 'analytics'>('subjects');
   const [showSemDropdown, setShowSemDropdown] = useState(false);
   const [selectedSem, setSelectedSem] = useState('SEM -1');
 
-  // Background refresh without blocking UI or showing spinner
+  // When account changes: clear old data, load per-account cache, then fetch fresh
   useEffect(() => {
     if (!currentAccount?.id) return;
 
+    // Load per-account cache immediately (instant render for this account)
+    const cached = localStorage.getItem(`campustrack_att_${currentAccount.id}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.subjects) && parsed.subjects.length > 0) {
+          setAttendance(parsed);
+        } else {
+          setAttendance(null); // show loading
+        }
+      } catch {
+        setAttendance(null);
+      }
+    } else {
+      setAttendance(null); // show loading for new account
+    }
+
+    // Background refresh from backend
     api.getAttendance(currentAccount.id, '1')
       .then(data => {
         if (data && data.subjects && data.subjects.length > 0) {
           setAttendance(data);
           try {
-            localStorage.setItem('campustrack_attendance_cache', JSON.stringify(data));
+            localStorage.setItem(`campustrack_att_${currentAccount.id}`, JSON.stringify(data));
           } catch {}
         }
       })
       .catch(() => {});
   }, [currentAccount?.id]);
 
-  const overallPct = attendance.overallPercentage || currentAccount?.attendancePercentage || 65;
-  const presentCount = attendance.presentClasses || Math.round((attendance.totalClasses || 161) * (overallPct / 100));
-  const absentCount = attendance.absentClasses || ((attendance.totalClasses || 161) - presentCount);
+  const overallPct = attendance?.overallPercentage || currentAccount?.attendancePercentage || 0;
+  const presentCount = attendance?.presentClasses || Math.round((attendance?.totalClasses || 0) * (overallPct / 100));
+  const absentCount = attendance?.absentClasses || ((attendance?.totalClasses || 0) - presentCount);
   const shortagePct = overallPct >= 75 ? '0%' : `${(75 - overallPct).toFixed(2)}%`;
+
+  // Loading state when no attendance data yet
+  if (!attendance) {
+    return (
+      <div className="max-w-xl mx-auto space-y-4 pb-12 font-sans select-none">
+        {/* Account Selector Pill */}
+        {accounts.length > 1 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {accounts.map(acc => {
+              const isSelected = acc.id === currentAccount?.id;
+              return (
+                <button
+                  key={acc.id}
+                  onClick={() => setActiveAccount(acc)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                    isSelected
+                      ? 'bg-black text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>{acc.studentName}</span>
+                  {acc.isPrimary && <Star className="w-3 h-3 text-amber-400 fill-current" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+          <RefreshCw className="w-6 h-6 animate-spin" />
+          <span className="text-sm font-medium">Loading attendance for {currentAccount?.studentName || 'student'}...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-4 pb-12 font-sans select-none">

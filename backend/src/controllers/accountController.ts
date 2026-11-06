@@ -11,13 +11,13 @@ const linkAccountSchema = z.object({
 });
 
 export const accountController = {
-  getAccounts(req: AuthenticatedRequest, res: Response) {
+  async getAccounts(req: AuthenticatedRequest, res: Response) {
     if (!req.user || !req.user.userId) {
       res.status(401).json({ success: false, message: 'Unauthorized. Please login.' });
       return;
     }
     const userId = req.user.userId;
-    const accounts = multiAccountService.getAccounts(userId);
+    const accounts = await multiAccountService.getAccountsWithCloudSync(userId);
     // Strip sensitive encrypted password from API response
     const sanitized = accounts.map(({ encryptedPassword, encryptedSession, ...rest }) => rest);
     res.json({ success: true, accounts: sanitized });

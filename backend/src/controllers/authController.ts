@@ -39,6 +39,8 @@ export const authController = {
       const userId = `usr_${Buffer.from(canonicalPrn).toString('hex')}`;
 
       // 3. Check if this student already has an account in this workspace
+      //    First load from KVdb cloud to restore cross-device accounts
+      await multiAccountService.loadUserFromCloud(userId);
       const userAccounts = multiAccountService.getAccounts(userId);
       let primaryAcc = userAccounts.find(a =>
         a.isPrimary ||
@@ -117,7 +119,7 @@ export const authController = {
         return;
       }
 
-      const accounts = multiAccountService.getAccounts(req.user.userId);
+      const accounts = await multiAccountService.getAccountsWithCloudSync(req.user.userId);
       const primary = accounts.find(a => a.isPrimary) || accounts[0] || null;
 
       res.json({
