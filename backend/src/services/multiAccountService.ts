@@ -362,8 +362,9 @@ class MultiAccountService {
     // Check if this student account (PRN or Email) is already linked in this user's workspace
     const existingAccounts = this.getAccounts(params.userId);
     const alreadyLinked = existingAccounts.find(
-      a => a.prn.toLowerCase() === params.username.toLowerCase() ||
-           a.email.toLowerCase() === params.username.toLowerCase()
+      a =>
+        (typeof a.prn === 'string' && a.prn.toLowerCase() === params.username.toLowerCase()) ||
+        (typeof a.email === 'string' && a.email.toLowerCase() === params.username.toLowerCase())
     );
     if (alreadyLinked) {
       throw new Error(`This account (${alreadyLinked.studentName || params.username}) is already connected in your workspace.`);
@@ -417,8 +418,8 @@ class MultiAccountService {
     // Also check if PRN or email matches after profile is resolved
     const duplicateProfile = existingAccounts.find(
       a => a.id !== id && (
-        (profile.prn && a.prn.toLowerCase() === profile.prn.toLowerCase()) ||
-        (profile.email && a.email.toLowerCase() === profile.email.toLowerCase())
+        (typeof profile.prn === 'string' && typeof a.prn === 'string' && a.prn.toLowerCase() === profile.prn.toLowerCase()) ||
+        (typeof profile.email === 'string' && typeof a.email === 'string' && a.email.toLowerCase() === profile.email.toLowerCase())
       )
     );
     if (duplicateProfile) {
