@@ -42,11 +42,17 @@ export const authController = {
       //    First load from KVdb cloud to restore cross-device accounts
       await multiAccountService.loadUserFromCloud(userId);
       const userAccounts = multiAccountService.getAccounts(userId);
-      let primaryAcc = userAccounts.find(a =>
-        a.isPrimary ||
-        a.prn.toLowerCase() === canonicalPrn ||
-        (profile.email && a.email.toLowerCase() === profile.email.toLowerCase())
-      );
+      let primaryAcc = userAccounts.find(a => {
+        const savedPrn = typeof a.prn === 'string' ? a.prn.toLowerCase() : '';
+        const savedEmail = typeof a.email === 'string' ? a.email.toLowerCase() : '';
+        const currentEmail = typeof profile.email === 'string' ? profile.email.toLowerCase() : '';
+
+        return (
+          a.isPrimary ||
+          (savedPrn !== '' && savedPrn === canonicalPrn) ||
+          (currentEmail !== '' && savedEmail !== '' && savedEmail === currentEmail)
+        );
+      });
 
       if (!primaryAcc) {
         // Link as primary account for this user's isolated workspace
@@ -137,4 +143,3 @@ export const authController = {
     }
   }
 };
-
