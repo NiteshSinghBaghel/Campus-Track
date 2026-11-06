@@ -26,6 +26,36 @@ const getVaultKey = (userId?: string | null) => {
   return userId ? `campustrack_accounts_${userId}` : 'campustrack_accounts_cache';
 };
 
+// Old local/cloud records may be missing fields that the UI expects to be strings.
+// Normalize at the API/cache boundary so a partial account cannot crash rendering.
+const normalizeAccount = (value: unknown, index = 0): StudentAccount => {
+  const account = value && typeof value === 'object'
+    ? value as Partial<StudentAccount>
+    : {};
+  const validStatuses: StudentAccount['connectionStatus'][] = ['CONNECTED', 'DISCONNECTED', 'EXPIRED', 'ERROR'];
+
+  return {
+    id: typeof account.id === 'string' && account.id ? account.id : `unknown-account-${index}`,
+    studentName: typeof account.studentName === 'string' && account.studentName.trim() ? account.studentName : 'Student',
+    prn: typeof account.prn === 'string' ? account.prn : '',
+    email: typeof account.email === 'string' ? account.email : '',
+    program: typeof account.program === 'string' ? account.program : 'Program',
+    semester: typeof account.semester === 'string' ? account.semester : 'Current',
+    isPrimary: account.isPrimary === true,
+    connectionStatus: validStatuses.includes(account.connectionStatus as StudentAccount['connectionStatus'])
+      ? account.connectionStatus as StudentAccount['connectionStatus']
+      : 'ERROR',
+    lastSyncedAt: typeof account.lastSyncedAt === 'string' ? account.lastSyncedAt : undefined,
+    attendancePercentage: typeof account.attendancePercentage === 'number' && Number.isFinite(account.attendancePercentage)
+      ? account.attendancePercentage
+      : 0,
+    avatarUrl: typeof account.avatarUrl === 'string' ? account.avatarUrl : undefined
+  };
+};
+
+const normalizeAccounts = (value: unknown): StudentAccount[] =>
+  Array.isArray(value) ? value.map((account, index) => normalizeAccount(account, index)) : [];
+
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const hasToken = Boolean(authStorage.getToken());
 
@@ -45,7 +75,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const u = localStorage.getItem(LOCAL_USER_KEY);
       const uid = u ? JSON.parse(u)?.userId : null;
       const cached = localStorage.getItem(getVaultKey(uid));
-      return cached ? JSON.parse(cached) : [];
+      return cached ? normalizeAccounts(JSON.parse(cached)) : [];
     } catch {
       return [];
     }
@@ -59,7 +89,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const cachedAccounts = localStorage.getItem(getVaultKey(uid));
       const activeId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
       if (cachedAccounts) {
-        const parsed: StudentAccount[] = JSON.parse(cachedAccounts);
+        const parsed = normalizeAccounts(JSON.parse(cachedAccounts));
         if (activeId) {
           const match = parsed.find(a => a.id === activeId);
           if (match) return match;
@@ -78,9 +108,10 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const primaryAccount = accounts.find(a => a.isPrimary) || (accounts.length > 0 ? accounts[0] : null);
 
   const setActiveAccount = (account: StudentAccount) => {
-    setActiveAccountState(account);
+    const normalized = normalizeAccount(account);
+    setActiveAccountState(normalized);
     try {
-      localStorage.setItem(LOCAL_ACTIVE_ID_KEY, account.id);
+      localStorage.setItem(LOCAL_ACTIVE_ID_KEY, normalized.id);
     } catch {}
   };
 
@@ -94,7 +125,6 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const logout = () => {
-    const uid = authUser?.userId;
     authStorage.removeToken();
     try {
       localStorage.removeItem(LOCAL_USER_KEY);
@@ -130,7 +160,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     try {
       const list: StudentAccount[] = await api.getAccounts();
-      const finalAccounts: StudentAccount[] = list || [];
+      const finalAccounts = normalizeAccounts(list);
 
       setAccounts(finalAccounts);
       try {
@@ -144,14 +174,14 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
         const storedId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
         if (storedId) {
-          const foundStored = finalAccounts.find((a: StudentAccount) => a.id === storedId);
+          const foundStored = finalAccounts.find(a => a.id === storedId);
           if (foundStored) return foundStored;
         }
         if (prev) {
-          const found = finalAccounts.find((a: StudentAccount) => a.id === prev.id);
+          const found = finalAccounts.find(a => a.id === prev.id);
           if (found) return found;
         }
-        const primary = finalAccounts.find((a: StudentAccount) => a.isPrimary);
+        const primary = finalAccounts.find(a => a.isPrimary);
         return primary || finalAccounts[0];
       });
     } catch (err: any) {
