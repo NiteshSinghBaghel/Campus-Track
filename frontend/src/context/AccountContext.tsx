@@ -130,28 +130,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     try {
       const list: StudentAccount[] = await api.getAccounts();
-      const safeList: StudentAccount[] = list || [];
-
-      // Check if we had accounts cached locally for THIS specific user that are missing from server
-      let finalAccounts: StudentAccount[] = safeList;
-      const cachedRaw = localStorage.getItem(vaultKey);
-      if (cachedRaw) {
-        try {
-          const cached: StudentAccount[] = JSON.parse(cachedRaw);
-          if (Array.isArray(cached) && cached.length > 0) {
-            // Find any accounts in cache that are missing from server list
-            const missing = cached.filter((c: StudentAccount) =>
-              !safeList.some((s: StudentAccount) => s.id === c.id || (s.prn && c.prn && s.prn.toLowerCase() === c.prn.toLowerCase()))
-            );
-            if (missing.length > 0) {
-              console.log('[AccountContext] Restoring', missing.length, 'missing accounts for user', currentUserId);
-              finalAccounts = [...safeList, ...missing];
-              // Restore to backend so backend also has them in memory/disk
-              api.syncVault(finalAccounts).catch(() => {});
-            }
-          }
-        } catch {}
-      }
+      const finalAccounts: StudentAccount[] = list || [];
 
       setAccounts(finalAccounts);
       try {

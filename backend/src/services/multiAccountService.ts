@@ -33,23 +33,29 @@ function kvGet(userId: string): Promise<ConnectedAccountRecord[] | null> {
   });
 }
 
-function kvPut(userId: string, records: ConnectedAccountRecord[]): void {
-  try {
-    const body = Buffer.from(JSON.stringify(records));
-    const url = new URL(`https://kvdb.io/${KVDB_BUCKET}/${kvKey(userId)}`);
-    const req = https.request({
-      hostname: url.hostname,
-      path: url.pathname,
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': body.length
-      }
-    }, () => {});
-    req.on('error', () => {});
-    req.write(body);
-    req.end();
-  } catch {}
+function kvPut(userId: string, records: ConnectedAccountRecord[]): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const body = Buffer.from(JSON.stringify(records));
+      const url = new URL(`https://kvdb.io/${KVDB_BUCKET}/${kvKey(userId)}`);
+      const req = https.request({
+        hostname: url.hostname,
+        path: url.pathname,
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': body.length
+        }
+      }, (res) => {
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.write(body);
+      req.end();
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
 export interface ConnectedAccountRecord {
@@ -163,30 +169,31 @@ class MultiAccountService {
    * Called on login and on getAccounts to ensure cross-device sync.
    */
   async loadUserFromCloud(userId: string): Promise<void> {
-    if (!userId || this.cloudLoadedUsers.has(userId)) return;
-    this.cloudLoadedUsers.add(userId);
-
-    // If we already have accounts for this user locally, skip cloud
-    const local = Array.from(this.accounts.values()).filter(a => a.userId === userId);
-    if (local.length > 0) return;
+    if (!userId) return;
 
     try {
       console.log(`[MultiAccountService] Loading user ${userId} from KVdb cloud...`);
       const cloudRecords = await kvGet(userId);
-      if (cloudRecords && cloudRecords.length > 0) {
-        let merged = 0;
-        for (const rec of cloudRecords) {
-          if (rec.id && !this.accounts.has(rec.id)) {
-            rec.userId = userId;
-            this.accounts.set(rec.id, rec);
-            merged++;
+      if (cloudRecords !== null && Array.isArray(cloudRecords)) {
+        // Remove old in-memory accounts for this user that are not in cloud records
+        const currentForUser = Array.from(this.accounts.values()).filter(a => a.userId === userId);
+        const cloudIds = new Set(cloudRecords.map(r => r.id));
+        for (const localAcc of currentForUser) {
+          if (!cloudIds.has(localAcc.id)) {
+            this.accounts.delete(localAcc.id);
+            this.adapters.delete(localAcc.id);
           }
         }
-        if (merged > 0) {
-          console.log(`[MultiAccountService] Restored ${merged} accounts from cloud for user ${userId}`);
-          // Save to local disk too
-          persistAccounts(this.accounts);
+
+        // Add or update accounts from cloud
+        for (const rec of cloudRecords) {
+          if (rec.id) {
+            rec.userId = userId;
+            this.accounts.set(rec.id, rec);
+          }
         }
+
+        persistAccounts(this.accounts);
       }
     } catch (e) {
       console.warn('[MultiAccountService] Cloud load failed:', e);
@@ -505,7 +512,7 @@ class MultiAccountService {
     }
   }
 
-  removeAccount(id: string): boolean {
+  async removeAccount(id: string): Promise<boolean> {
     const account = this.accounts.get(id);
     this.adapters.delete(id);
     const deleted = this.accounts.delete(id);
@@ -514,7 +521,7 @@ class MultiAccountService {
       if (account && account.userId) {
         // Also explicitly update KVdb for this user's remaining accounts
         const remaining = Array.from(this.accounts.values()).filter(a => a.userId === account.userId);
-        kvPut(account.userId, remaining);
+        await kvPut(account.userId, remaining);
       }
     }
     return deleted;
