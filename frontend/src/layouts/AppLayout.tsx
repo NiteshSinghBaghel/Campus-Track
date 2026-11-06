@@ -37,8 +37,8 @@ export const AppLayout: React.FC = () => {
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white border-r border-slate-800 p-4 shrink-0">
         <div className="flex items-center gap-3 px-3 py-4 border-b border-slate-800 mb-6">
           {/* Top Left Branding: Application Name + Logo */}
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/25 shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 shadow-lg shadow-indigo-500/25">
+            <img src="/icons/icon-192.png" alt="Campus Track" className="w-full h-full object-cover" />
           </div>
           <div className="min-w-0">
             <h1 className="font-bold text-base leading-tight tracking-tight text-white truncate">
@@ -146,8 +146,8 @@ export const AppLayout: React.FC = () => {
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 md:hidden">
             {/* Mobile Top Left: App Logo + Name */}
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-md">
-              <Sparkles className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-md shrink-0">
+              <img src="/icons/icon-192.png" alt="Campus Track" className="w-full h-full object-cover" />
             </div>
             <div className="min-w-0">
               <span className="font-bold text-sm tracking-tight text-slate-900 truncate block">

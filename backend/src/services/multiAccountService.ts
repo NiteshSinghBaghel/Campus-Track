@@ -223,6 +223,7 @@ class MultiAccountService {
   }
 
   private attendanceCache = new Map<string, { summary: AttendanceSummary; expiresAt: number }>();
+  private timetableCache = new Map<string, { slots: TimetableSlot[]; expiresAt: number }>();
 
   async syncAccountAttendance(accountId: string, termId?: string): Promise<AttendanceSummary> {
     const account = this.accounts.get(accountId);
@@ -230,7 +231,7 @@ class MultiAccountService {
 
     const cacheKey = `${accountId}:${termId || 'default'}`;
     const cached = this.attendanceCache.get(cacheKey);
-    // Return cached attendance if fresh (< 3 minutes)
+    // Return cached attendance if fresh (< 5 minutes)
     if (cached && cached.expiresAt > Date.now()) {
       return cached.summary;
     }
@@ -244,15 +245,17 @@ class MultiAccountService {
       this.accounts.set(accountId, account);
       persistAccounts(this.accounts);
 
-      // Cache for 3 minutes for high-speed instant response
+      // Cache for 5 minutes
       this.attendanceCache.set(cacheKey, {
         summary,
-        expiresAt: Date.now() + 3 * 60 * 1000
+        expiresAt: Date.now() + 5 * 60 * 1000
       });
 
       return summary;
     } catch (err) {
-      // If live ERP session expired, still return latest cached/curriculum attendance
+      // Return stale cache if exists
+      if (cached) return cached.summary;
+      // Final fallback
       const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
       const fallbackSummary = await fallbackAdapter.getAttendance(termId);
       fallbackSummary.overallPercentage = account.attendancePercentage || fallbackSummary.overallPercentage;
@@ -261,14 +264,34 @@ class MultiAccountService {
   }
 
   async getAccountTimetable(accountId: string, date?: string): Promise<TimetableSlot[]> {
-    try {
-      const adapter = await this.getReadyAdapter(accountId);
-      return await adapter.getTimetable(date);
-    } catch (e) {
-      // If live session is expired, still serve timetable curriculum slots
-      const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
-      return await fallbackAdapter.getTimetable(date);
+    const cacheKey = `${accountId}:${date || 'today'}`;
+    const cached = this.timetableCache.get(cacheKey);
+    // Return cached timetable if fresh (< 15 minutes) — INSTANT response
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.slots;
     }
+
+    // Always serve from static fallback immediately (< 1ms, no ERP call)
+    const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
+    const slots = await fallbackAdapter.getTimetable(date);
+
+    // Cache for 15 minutes
+    this.timetableCache.set(cacheKey, {
+      slots,
+      expiresAt: Date.now() + 15 * 60 * 1000
+    });
+
+    // Optionally refresh from live ERP in background (non-blocking)
+    this.getReadyAdapter(accountId).then(adapter =>
+      adapter.getTimetable(date).then(liveSlots => {
+        this.timetableCache.set(cacheKey, {
+          slots: liveSlots,
+          expiresAt: Date.now() + 15 * 60 * 1000
+        });
+      }).catch(() => {}) // silently ignore ERP failures
+    ).catch(() => {});
+
+    return slots;
   }
 
   async getAccountResults(accountId: string): Promise<ExamResult[]> {

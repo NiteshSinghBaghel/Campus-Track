@@ -145,8 +145,8 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* App Branding Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-400 text-white shadow-xl shadow-indigo-500/30 mb-4 animate-in zoom-in-50">
-            <Sparkles className="w-8 h-8" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl overflow-hidden shadow-xl shadow-indigo-500/30 mb-4 animate-in zoom-in-50">
+            <img src="/icons/icon-192.png" alt="Campus Track" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Campus Track</h1>
           <p className="text-sm text-indigo-300 font-medium mt-1">

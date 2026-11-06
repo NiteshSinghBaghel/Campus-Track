@@ -24,17 +24,38 @@ export const Dashboard: React.FC = () => {
   const currentAccount = activeAccount || primaryAccount;
 
   useEffect(() => {
-    if (currentAccount) {
-      setLoading(true);
-      Promise.all([
-        api.getAttendance(currentAccount.id).catch(() => null),
-        api.getTimetable(currentAccount.id).catch(() => [])
-      ]).then(([attData, ttData]) => {
+    if (!currentAccount) return;
+
+    // 1. Load from localStorage cache INSTANTLY (no wait)
+    try {
+      const cachedAtt = localStorage.getItem(`att_cache_${currentAccount.id}`);
+      if (cachedAtt) {
+        const { data, ts } = JSON.parse(cachedAtt);
+        if (Date.now() - ts < 10 * 60 * 1000) setAttendance(data);
+      }
+      const cachedTt = localStorage.getItem(`tt_cache_${currentAccount.id}`);
+      if (cachedTt) {
+        const { data, ts } = JSON.parse(cachedTt);
+        if (Date.now() - ts < 15 * 60 * 1000) setTimetable(data);
+      }
+    } catch {}
+
+    // 2. Fetch fresh data in background (non-blocking)
+    setLoading(true);
+    Promise.all([
+      api.getAttendance(currentAccount.id).catch(() => null),
+      api.getTimetable(currentAccount.id).catch(() => [])
+    ]).then(([attData, ttData]) => {
+      if (attData) {
         setAttendance(attData);
-        setTimetable(ttData || []);
-        setLoading(false);
-      });
-    }
+        try { localStorage.setItem(`att_cache_${currentAccount.id}`, JSON.stringify({ data: attData, ts: Date.now() })); } catch {}
+      }
+      if (ttData && ttData.length > 0) {
+        setTimetable(ttData);
+        try { localStorage.setItem(`tt_cache_${currentAccount.id}`, JSON.stringify({ data: ttData, ts: Date.now() })); } catch {}
+      }
+      setLoading(false);
+    });
   }, [currentAccount?.id]);
 
   return (

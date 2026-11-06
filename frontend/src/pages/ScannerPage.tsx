@@ -346,26 +346,29 @@ export const ScannerPage: React.FC = () => {
         )}
       </div>
 
-      {/* Center Target Box Overlay matching Screenshot 2 */}
+      {/* Center Target Box Overlay - Clean Modern Design */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center pointer-events-none px-4">
-        {/* Rectangular scanning bracket */}
-        <div className="relative w-72 h-44 sm:w-80 sm:h-48 flex items-center justify-center">
-          {/* Top-Left Corner */}
-          <div className="absolute top-0 left-0 w-8 h-8 border-t-[3.5px] border-l-[3.5px] border-[#22c55e] rounded-tl-xl shadow-[0_0_8px_#22c55e]" />
-          {/* Top-Right Corner */}
-          <div className="absolute top-0 right-0 w-8 h-8 border-t-[3.5px] border-r-[3.5px] border-[#22c55e] rounded-tr-xl shadow-[0_0_8px_#22c55e]" />
-          {/* Bottom-Left Corner */}
-          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-[3.5px] border-l-[3.5px] border-[#22c55e] rounded-bl-xl shadow-[0_0_8px_#22c55e]" />
-          {/* Bottom-Right Corner */}
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-[3.5px] border-r-[3.5px] border-[#22c55e] rounded-br-xl shadow-[0_0_8px_#22c55e]" />
+        {/* Clean rounded scanning frame - no corner brackets */}
+        <div className="relative w-72 h-52 sm:w-80 sm:h-56 flex items-center justify-center">
+          {/* Outer subtle dark vignette around frame */}
+          <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
+          {/* Main clean blue glowing border */}
+          <div
+            className="absolute inset-0 rounded-2xl"
+            style={{
+              border: '2px solid rgba(99,102,241,0.85)',
+              boxShadow: '0 0 0 1px rgba(99,102,241,0.2), 0 0 20px rgba(99,102,241,0.35), inset 0 0 20px rgba(99,102,241,0.08)'
+            }}
+          />
 
-          {/* Animated Neon Green Laser Scanning Line */}
+          {/* Animated blue laser scan line */}
           {isScanning && (
             <div
-              className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-[#22c55e] to-transparent shadow-[0_0_12px_#22c55e] rounded-full"
+              className="absolute left-3 right-3 h-[1.5px] rounded-full"
               style={{
-                top: '50%',
-                animation: 'scanLaser 2.2s ease-in-out infinite alternate'
+                background: 'linear-gradient(90deg, transparent, #818cf8, #c7d2fe, #818cf8, transparent)',
+                boxShadow: '0 0 10px #818cf8, 0 0 20px rgba(129,140,248,0.4)',
+                animation: 'scanLaser 2s ease-in-out infinite alternate'
               }}
             />
           )}
@@ -399,7 +402,7 @@ export const ScannerPage: React.FC = () => {
 
         {/* Account Selector Pill: "• Accounts (2/3)  [Switch]" */}
         <div className="mt-3.5 inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md shadow-md pointer-events-auto">
-          <span className="w-2 h-2 rounded-full bg-[#22c55e] shadow-[0_0_6px_#22c55e]" />
+          <span className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_6px_#818cf8]" />
           <span className="text-xs font-semibold text-white/90">
             Accounts ({selectedAccounts.length}/{accounts.length || selectedAccounts.length})
           </span>
@@ -675,20 +678,36 @@ export const ScannerPage: React.FC = () => {
         </div>
       )}
 
-      {/* Global CSS for the Neon Laser Animation */}
+      {/* Global CSS for animations + hide html5-qrcode library overlays */}
       <style>{`
         @keyframes scanLaser {
-          0% {
-            top: 6%;
-            opacity: 0.2;
-          }
-          50% {
-            opacity: 1;
-          }
-          100% {
-            top: 92%;
-            opacity: 0.2;
-          }
+          0% { top: 6%; opacity: 0.3; }
+          50% { opacity: 1; }
+          100% { top: 92%; opacity: 0.3; }
+        }
+        /* Hide all html5-qrcode library injected overlays */
+        #qr-reader__scan_region img,
+        #qr-reader__scan_region > img,
+        #qr-reader__dashboard,
+        #qr-reader__header_message,
+        #qr-reader__status_span,
+        #qr-reader__camera_permission_button,
+        #qr-reader__camera_selection,
+        #qr-reader__filescan_input,
+        .qr-shaded-region,
+        [id^="qr-reader__"] > button,
+        [id^="qr-reader__"] > select {
+          display: none !important;
+        }
+        /* Remove any border/outline injected by html5-qrcode */
+        #qr-reader {
+          border: none !important;
+          padding: 0 !important;
+        }
+        #qr-reader video {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
         }
       `}</style>
     </div>
