@@ -28,36 +28,75 @@ const __dirname = path.dirname(__filename);
 const DATA_FILE = path.resolve(__dirname, '../../data/accounts.json');
 const DATA_BACKUP_FILE = path.resolve(__dirname, '../../data/accounts.backup.json');
 
+/**
+ * Load accounts from all sources in priority order:
+ * 1. Local file (fastest, works in dev)
+ * 2. ACCOUNTS_DATA env variable (Render/cloud deploy — survives restarts)
+ * 3. Empty map
+ */
 function loadPersistedAccounts(): Map<string, ConnectedAccountRecord> {
   const map = new Map<string, ConnectedAccountRecord>();
+
+  // Priority 1: Local file
   try {
     const fileToRead = fs.existsSync(DATA_FILE) ? DATA_FILE : (fs.existsSync(DATA_BACKUP_FILE) ? DATA_BACKUP_FILE : null);
     if (fileToRead) {
       const raw = fs.readFileSync(fileToRead, 'utf-8');
       const data = JSON.parse(raw);
-      if (Array.isArray(data)) {
-        for (const acc of data) {
-          map.set(acc.id, acc);
-        }
+      if (Array.isArray(data) && data.length > 0) {
+        for (const acc of data) map.set(acc.id, acc);
+        console.log(`[MultiAccountService] Loaded ${map.size} accounts from local file.`);
+        return map;
       }
     }
   } catch (e) {
-    console.warn('[MultiAccountService] Failed to load persisted accounts:', e);
+    console.warn('[MultiAccountService] Local file load failed:', e);
   }
+
+  // Priority 2: ACCOUNTS_DATA environment variable (cloud-safe persistent storage)
+  try {
+    const envData = process.env.ACCOUNTS_DATA;
+    if (envData && envData.trim() !== '' && envData !== '[]') {
+      const data = JSON.parse(Buffer.from(envData, 'base64').toString('utf-8'));
+      if (Array.isArray(data) && data.length > 0) {
+        for (const acc of data) map.set(acc.id, acc);
+        console.log(`[MultiAccountService] Loaded ${map.size} accounts from ACCOUNTS_DATA env var.`);
+        // Also write to local file for faster future loads
+        try {
+          const dir = path.dirname(DATA_FILE);
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+        } catch {}
+        return map;
+      }
+    }
+  } catch (e) {
+    console.warn('[MultiAccountService] ACCOUNTS_DATA env load failed:', e);
+  }
+
+  console.log('[MultiAccountService] No persisted accounts found, starting fresh.');
   return map;
 }
 
 function persistAccounts(accounts: Map<string, ConnectedAccountRecord>) {
+  const data = Array.from(accounts.values());
+  const serialized = JSON.stringify(data, null, 2);
+
+  // Always write to local file
   try {
     const dir = path.dirname(DATA_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const serialized = JSON.stringify(Array.from(accounts.values()), null, 2);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(DATA_FILE, serialized, 'utf-8');
     fs.writeFileSync(DATA_BACKUP_FILE, serialized, 'utf-8');
   } catch (e) {
-    console.warn('[MultiAccountService] Failed to save accounts:', e);
+    console.warn('[MultiAccountService] Failed to save accounts to file:', e);
+  }
+
+  // Also log the base64 for Render env var update hint (only if has accounts)
+  if (data.length > 0) {
+    const b64 = Buffer.from(serialized).toString('base64');
+    // Print only first 80 chars to avoid log spam; admin can retrieve full value via GET /api/admin/export-accounts
+    console.log(`[MultiAccountService] Saved ${data.length} accounts. ACCOUNTS_DATA (first 80): ${b64.slice(0, 80)}...`);
   }
 }
 

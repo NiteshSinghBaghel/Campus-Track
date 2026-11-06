@@ -113,6 +113,22 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const list = await api.getAccounts();
       const safeList = list || [];
+
+      // If server returned empty list but we have cached accounts locally,
+      // keep showing cached data (server may have restarted and lost accounts.json)
+      if (safeList.length === 0) {
+        const cachedRaw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+        if (cachedRaw) {
+          const cached: StudentAccount[] = JSON.parse(cachedRaw);
+          if (cached.length > 0) {
+            console.warn('[AccountContext] Server returned 0 accounts but cache has', cached.length, '— keeping cached accounts.');
+            // Don't overwrite state with empty; keep existing
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       setAccounts(safeList);
       try {
         localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(safeList));
@@ -141,6 +157,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (err?.message?.includes('401') || err?.message?.includes('Authentication required') || err?.message?.includes('Invalid or expired')) {
         logout();
       }
+      // For other errors (network, server down), keep existing cached accounts visible
     } finally {
       setLoading(false);
     }

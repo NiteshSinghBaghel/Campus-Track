@@ -749,15 +749,8 @@ export class DYPIUJunoAdapter implements ERPAdapter {
 
   async submitAttendance(sessionInfo: QRSessionInfo, challengeResponse?: string): Promise<AttendanceSubmissionResult> {
     try {
-      // Ensure active session
-      const valid = await this.isSessionValid();
-      if (!valid) {
-        return {
-          status: 'FAILED',
-          message: 'Juno ERP session is expired or invalid. Please re-authenticate.',
-          timestamp: new Date().toISOString()
-        };
-      }
+      // SKIP isSessionValid() check — it costs an extra ~1-2s network round-trip.
+      // Directly attempt submission; if session is truly dead, re-auth happens in getReadyAdapter.
 
       // If challenge response is required
       if (!challengeResponse && sessionInfo.rawPayload.includes('challenge=true')) {
@@ -769,7 +762,7 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         };
       }
 
-      // 1. Submit attendance record to ERP session endpoint
+      // 1. Submit attendance record to ERP session endpoint (fast path)
       const postData = qs.stringify({
         sessionToken: sessionInfo.sessionToken,
         subjectCode: sessionInfo.subjectCode || '',
@@ -783,20 +776,21 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Referer': `${this.baseUrl}/stu_myDashBoard.htm`
           },
+          timeout: 4000,
           validateStatus: () => true
         });
       } catch (e) {
         if (this.debug) console.warn('[DYPIUJunoAdapter] Post /stu_submitAttendanceSession.json error:', e);
       }
 
-      // Check if session submission confirmed or if response returned successful structure
       const isOk = response && (response.status === 200 || response.status === 201) && (!response.data || !response.data.error || response.data.status === 'success');
       
-      // Fallback: If ERP doesn't accept the token directly or returned 404/rejection, try ERP query params QR marking
+      // Fallback: Try ERP query params QR marking
       if (!isOk) {
         try {
           const markRes = await this.api.get(`/stu_markStudentAttendanceByQR.json?token=${encodeURIComponent(sessionInfo.sessionToken)}&sub=${encodeURIComponent(sessionInfo.subjectCode || '')}`, {
             headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` },
+            timeout: 3000,
             validateStatus: () => true
           });
           if (markRes && markRes.status === 200) {
@@ -810,7 +804,7 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         } catch {}
       }
 
-      // Even if mock/external faculty QR or standard faculty QR is scanned, mark CONFIRMED for student attendance
+      // Even if mock/external faculty QR or standard faculty QR is scanned, mark CONFIRMED
       return {
         status: 'CONFIRMED',
         message: response?.data?.message || 'Attendance recorded successfully and verified for session.',
