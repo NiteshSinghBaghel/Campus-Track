@@ -22,14 +22,7 @@ export const Dashboard: React.FC = () => {
       const cached = localStorage.getItem('campustrack_attendance_cache');
       if (cached) return JSON.parse(cached);
     } catch {}
-    return {
-      overallPercentage: 65,
-      totalClasses: 161,
-      presentClasses: 104,
-      absentClasses: 57,
-      lastSyncedAt: new Date().toISOString(),
-      subjects: []
-    };
+    return null;
   });
   const [timetable, setTimetable] = useState<TimetableSlot[]>(() => {
     try {
@@ -144,7 +137,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-3">
-            {attendance ? `${attendance.presentClasses} of ${attendance.totalClasses} lectures attended` : 'Loading latest records...'}
+            {attendance ? `${attendance.presentClasses} of ${attendance.totalClasses} lectures attended` : (currentAccount?.attendancePercentage ? `${currentAccount.attendancePercentage}% verified presence` : 'Loading latest records...')}
           </p>
         </div>
 

@@ -814,23 +814,43 @@ export class DYPIUJunoAdapter implements ERPAdapter {
     }
   }
 
+  private cachedImageBuffer: { buffer: Buffer; contentType: string } | null = null;
+
   async getProfileImageBuffer(): Promise<{ buffer: Buffer; contentType: string } | null> {
-    try {
-      const res = await this.api.get('/getStudentProfileImage.json', {
-        responseType: 'arraybuffer',
-        headers: {
-          'Referer': `${this.baseUrl}/stu_myDashBoard.htm`
-        }
-      });
-      if (res && res.data && res.data.length > 50) {
-        const ct = res.headers['content-type'] || 'image/jpeg';
-        return { buffer: Buffer.from(res.data), contentType: ct };
-      }
-      return null;
-    } catch (e) {
-      if (this.debug) console.warn('[DYPIUJunoAdapter] Image buffer fetch failed:', e);
-      return null;
+    if (this.cachedImageBuffer) {
+      return this.cachedImageBuffer;
     }
+
+    const endpoints = [
+      '/getStudentProfileImage.json',
+      '/getStudentProfileImageWithStaff.json',
+      '/getStudentImage.htm',
+      '/stu_getStudentProfileImage.json'
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const res = await this.api.get(ep, {
+          responseType: 'arraybuffer',
+          timeout: 4000,
+          headers: {
+            'Referer': `${this.baseUrl}/stu_myDashBoard.htm`
+          }
+        });
+        if (res && res.data && res.data.length > 50) {
+          const buf = Buffer.from(res.data);
+          // Check if valid JPEG/PNG magic bytes
+          const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
+          const isPng = buf[0] === 0x89 && buf[1] === 0x50;
+          const ct = isJpeg ? 'image/jpeg' : (isPng ? 'image/png' : (res.headers['content-type'] || 'image/jpeg'));
+          this.cachedImageBuffer = { buffer: buf, contentType: ct };
+          return this.cachedImageBuffer;
+        }
+      } catch (e) {
+        // Try next endpoint
+      }
+    }
+    return null;
   }
 }
 

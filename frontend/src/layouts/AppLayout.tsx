@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAccounts } from '../context/AccountContext.js';
 import { api } from '../services/api.js';
@@ -19,6 +19,10 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const isScannerPage = location.pathname === '/scanner';
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [primaryAccount?.id, activeAccount?.id]);
 
   if (isScannerPage) {
     return (

@@ -142,10 +142,10 @@ export const AttendancePage: React.FC = () => {
       .catch(() => {});
   }, [currentAccount?.id]);
 
-  const overallPct = attendance.overallPercentage || 65;
-  const presentCount = attendance.presentClasses || 104;
-  const absentCount = attendance.absentClasses || 57;
-  const shortagePct = '10.40%';
+  const overallPct = attendance.overallPercentage || currentAccount?.attendancePercentage || 65;
+  const presentCount = attendance.presentClasses || Math.round((attendance.totalClasses || 161) * (overallPct / 100));
+  const absentCount = attendance.absentClasses || ((attendance.totalClasses || 161) - presentCount);
+  const shortagePct = overallPct >= 75 ? '0%' : `${(75 - overallPct).toFixed(2)}%`;
 
   return (
     <div className="max-w-xl mx-auto space-y-4 pb-12 font-sans select-none">

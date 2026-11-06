@@ -19,9 +19,12 @@ interface AccountContextType {
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
 
-const LOCAL_ACCOUNTS_KEY = 'campustrack_accounts_cache';
-const LOCAL_ACTIVE_ID_KEY = 'campustrack_active_account_id';
 const LOCAL_USER_KEY = 'campustrack_auth_user';
+const LOCAL_ACTIVE_ID_KEY = 'campustrack_active_account_id';
+
+const getVaultKey = (userId?: string | null) => {
+  return userId ? `campustrack_accounts_${userId}` : 'campustrack_accounts_cache';
+};
 
 export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const hasToken = Boolean(authStorage.getToken());
@@ -39,7 +42,9 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [accounts, setAccounts] = useState<StudentAccount[]>(() => {
     if (!hasToken) return [];
     try {
-      const cached = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+      const u = localStorage.getItem(LOCAL_USER_KEY);
+      const uid = u ? JSON.parse(u)?.userId : null;
+      const cached = localStorage.getItem(getVaultKey(uid));
       return cached ? JSON.parse(cached) : [];
     } catch {
       return [];
@@ -49,7 +54,9 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeAccount, setActiveAccountState] = useState<StudentAccount | null>(() => {
     if (!hasToken) return null;
     try {
-      const cachedAccounts = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+      const u = localStorage.getItem(LOCAL_USER_KEY);
+      const uid = u ? JSON.parse(u)?.userId : null;
+      const cachedAccounts = localStorage.getItem(getVaultKey(uid));
       const activeId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
       if (cachedAccounts) {
         const parsed: StudentAccount[] = JSON.parse(cachedAccounts);
@@ -83,14 +90,14 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(res.user));
     } catch {}
-    await refreshAccounts();
+    await refreshAccounts(res.user.userId);
   };
 
   const logout = () => {
+    const uid = authUser?.userId;
     authStorage.removeToken();
     try {
       localStorage.removeItem(LOCAL_USER_KEY);
-      localStorage.removeItem(LOCAL_ACCOUNTS_KEY);
       localStorage.removeItem(LOCAL_ACTIVE_ID_KEY);
       localStorage.removeItem('campustrack_attendance_cache');
       localStorage.removeItem('campustrack_timetable_cache');
@@ -100,7 +107,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setActiveAccountState(null);
   };
 
-  const refreshAccounts = async () => {
+  const refreshAccounts = async (explicitUserId?: string) => {
     const token = authStorage.getToken();
     if (!token) {
       setAccounts([]);
@@ -110,13 +117,24 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
 
+    const currentUserId = explicitUserId || authUser?.userId || (() => {
+      try {
+        const u = localStorage.getItem(LOCAL_USER_KEY);
+        return u ? JSON.parse(u)?.userId : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    const vaultKey = getVaultKey(currentUserId);
+
     try {
       const list: StudentAccount[] = await api.getAccounts();
       const safeList: StudentAccount[] = list || [];
 
-      // Check if we had accounts cached locally that are missing from server
+      // Check if we had accounts cached locally for THIS specific user that are missing from server
       let finalAccounts: StudentAccount[] = safeList;
-      const cachedRaw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+      const cachedRaw = localStorage.getItem(vaultKey);
       if (cachedRaw) {
         try {
           const cached: StudentAccount[] = JSON.parse(cachedRaw);
@@ -126,7 +144,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
               !safeList.some((s: StudentAccount) => s.id === c.id || (s.prn && c.prn && s.prn.toLowerCase() === c.prn.toLowerCase()))
             );
             if (missing.length > 0) {
-              console.log('[AccountContext] Restoring', missing.length, 'missing accounts from local storage vault');
+              console.log('[AccountContext] Restoring', missing.length, 'missing accounts for user', currentUserId);
               finalAccounts = [...safeList, ...missing];
               // Restore to backend so backend also has them in memory/disk
               api.syncVault(finalAccounts).catch(() => {});
@@ -137,7 +155,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       setAccounts(finalAccounts);
       try {
-        localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(finalAccounts));
+        localStorage.setItem(vaultKey, JSON.stringify(finalAccounts));
       } catch {}
 
       setActiveAccountState(prev => {

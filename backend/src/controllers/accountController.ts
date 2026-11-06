@@ -25,11 +25,16 @@ export const accountController = {
 
   syncVault(req: AuthenticatedRequest, res: Response) {
     try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
       const { accounts } = req.body;
       if (Array.isArray(accounts) && accounts.length > 0) {
-        multiAccountService.saveAccountsBulk(accounts);
+        multiAccountService.saveAccountsBulk(userId, accounts);
       }
-      const all = multiAccountService.getAccounts(req.user?.userId || '');
+      const all = multiAccountService.getAccounts(userId);
       const sanitized = all.map(({ encryptedPassword, encryptedSession, ...rest }) => rest);
       res.json({ success: true, accounts: sanitized });
     } catch (err: any) {

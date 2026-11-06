@@ -27,14 +27,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_FILE = path.resolve(__dirname, '../../data/accounts.json');
 const DATA_BACKUP_FILE = path.resolve(__dirname, '../../data/accounts.backup.json');
-const SEED_FILE = path.resolve(__dirname, '../data/seedAccounts.json');
 
 /**
- * Load accounts from all sources in priority order:
+ * Load accounts from persistent sources:
  * 1. Local file (accounts.json or accounts.backup.json)
- * 2. Seed file (bundled in git repository - survives cloud restarts)
- * 3. ACCOUNTS_DATA env variable (cloud-safe persistent storage)
- * 4. Empty map
+ * 2. ACCOUNTS_DATA env variable (cloud-safe persistent storage)
+ * 3. Empty map
  */
 function loadPersistedAccounts(): Map<string, ConnectedAccountRecord> {
   const map = new Map<string, ConnectedAccountRecord>();
@@ -55,28 +53,7 @@ function loadPersistedAccounts(): Map<string, ConnectedAccountRecord> {
     console.warn('[MultiAccountService] Local file load failed:', e);
   }
 
-  // Priority 2: Seed file (always exists in git repo)
-  try {
-    if (fs.existsSync(SEED_FILE)) {
-      const raw = fs.readFileSync(SEED_FILE, 'utf-8');
-      const data = JSON.parse(raw);
-      if (Array.isArray(data) && data.length > 0) {
-        for (const acc of data) map.set(acc.id, acc);
-        console.log(`[MultiAccountService] Loaded ${map.size} accounts from seedAccounts.json.`);
-        // Also save to DATA_FILE for consistency
-        try {
-          const dir = path.dirname(DATA_FILE);
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-          fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-        } catch {}
-        return map;
-      }
-    }
-  } catch (e) {
-    console.warn('[MultiAccountService] Seed file load failed:', e);
-  }
-
-  // Priority 3: ACCOUNTS_DATA environment variable (cloud-safe persistent storage)
+  // Priority 2: ACCOUNTS_DATA environment variable (cloud-safe persistent storage)
   try {
     const envData = process.env.ACCOUNTS_DATA;
     if (envData && envData.trim() !== '' && envData !== '[]') {
@@ -114,13 +91,6 @@ function persistAccounts(accounts: Map<string, ConnectedAccountRecord>) {
     console.warn('[MultiAccountService] Failed to save accounts to file:', e);
   }
 
-  // Also write to seed file so it's always kept up to date
-  try {
-    const seedDir = path.dirname(SEED_FILE);
-    if (!fs.existsSync(seedDir)) fs.mkdirSync(seedDir, { recursive: true });
-    fs.writeFileSync(SEED_FILE, serialized, 'utf-8');
-  } catch {}
-
   // Also log the base64 for Render env var update hint (only if has accounts)
   if (data.length > 0) {
     const b64 = Buffer.from(serialized).toString('base64');
@@ -133,26 +103,71 @@ class MultiAccountService {
   private adapters = new Map<string, DYPIUJunoAdapter>();
 
   getAccounts(userId: string): ConnectedAccountRecord[] {
-    const all = Array.from(this.accounts.values());
-    const matched = all.filter(a => a.userId === userId);
-    // If exact userId match found, return it.
-    // If empty (e.g. user logged in with PRN instead of email or vice versa), return all workspace accounts
-    if (matched.length > 0) return matched;
-    return all;
+    if (!userId) return [];
+    return Array.from(this.accounts.values()).filter(a => a.userId === userId);
   }
 
   getAccount(id: string): ConnectedAccountRecord | undefined {
     return this.accounts.get(id);
   }
 
-  saveAccountsBulk(records: ConnectedAccountRecord[]): void {
-    if (!Array.isArray(records)) return;
+  updateAccount(account: ConnectedAccountRecord): void {
+    this.accounts.set(account.id, account);
+    persistAccounts(this.accounts);
+  }
+
+  saveAccountsBulk(userId: string, records: ConnectedAccountRecord[]): void {
+    if (!Array.isArray(records) || !userId) return;
     for (const acc of records) {
       if (acc && acc.id) {
+        acc.userId = userId;
         this.accounts.set(acc.id, acc);
       }
     }
     persistAccounts(this.accounts);
+  }
+
+  async linkAccountWithAdapter(params: {
+    userId: string;
+    adapter: DYPIUJunoAdapter;
+    profile: StudentProfile;
+    username: string;
+    password: string;
+    isPrimary?: boolean;
+  }): Promise<{ account: ConnectedAccountRecord; profile: StudentProfile }> {
+    const id = `acc-${Date.now()}`;
+    const encryptedPassword = encrypt(params.password);
+    const encryptedSession = encrypt(params.adapter.exportSessionCookies());
+    const encryptedUsername = encrypt(params.username);
+
+    let initialAttendancePercentage = 0;
+    try {
+      const summary = await params.adapter.getAttendance();
+      initialAttendancePercentage = summary.overallPercentage;
+    } catch {}
+
+    const account: ConnectedAccountRecord = {
+      id,
+      userId: params.userId,
+      studentName: params.profile.studentName,
+      prn: params.profile.prn || params.username,
+      email: params.profile.email || params.username,
+      program: params.profile.program || 'Engineering',
+      semester: params.profile.semester || 'Current',
+      isPrimary: params.isPrimary ?? false,
+      connectionStatus: 'CONNECTED',
+      lastSyncedAt: new Date().toISOString(),
+      attendancePercentage: initialAttendancePercentage,
+      encryptedPassword,
+      encryptedSession,
+      encryptedUsername
+    };
+
+    this.accounts.set(id, account);
+    this.adapters.set(id, params.adapter);
+    persistAccounts(this.accounts);
+
+    return { account, profile: params.profile };
   }
 
   /**

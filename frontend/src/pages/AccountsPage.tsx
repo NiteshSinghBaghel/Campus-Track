@@ -108,8 +108,18 @@ export const AccountsPage: React.FC = () => {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-slate-800 to-indigo-900 text-white font-bold text-base flex items-center justify-center shrink-0">
-                    {acc.studentName.slice(0, 2).toUpperCase()}
+                  <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-800 flex items-center justify-center relative">
+                    <img
+                      src={api.getAccountImageUrl(acc.id)}
+                      alt={acc.studentName}
+                      className="w-full h-full object-cover z-10"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <span className="font-bold text-white text-base absolute z-0">
+                      {acc.studentName.slice(0, 2).toUpperCase()}
+                    </span>
                   </div>
                   <div>
                     <div className="flex items-center gap-2">

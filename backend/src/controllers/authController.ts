@@ -20,29 +20,58 @@ export const authController = {
       const parsed = loginSchema.parse(req.body);
       const cleanUsername = parsed.username.trim();
 
-      // Check if primary account already exists in database (matching email, PRN, or userId)
-      const allAccounts = multiAccountService.getAccounts('');
-      let primaryAcc = allAccounts.find(a =>
-        a.isPrimary ||
-        a.prn.toLowerCase() === cleanUsername.toLowerCase() ||
-        a.email.toLowerCase() === cleanUsername.toLowerCase()
-      );
+      // 1. Authenticate credentials against DYPIU Juno ERP for THIS specific student
+      const { DYPIUJunoAdapter } = await import('../adapters/juno/DYPIUJunoAdapter.js');
+      const adapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in', true);
+      const ok = await adapter.authenticate(cleanUsername, parsed.password);
 
-      const userId = primaryAcc?.userId || `usr_${Buffer.from(cleanUsername.toLowerCase()).toString('hex')}`;
-
-      if (!primaryAcc) {
-        // Link as primary account
-        const result = await multiAccountService.linkAccount({
-          userId,
-          username: cleanUsername,
-          password: parsed.password,
-          isPrimary: true,
-          grantorConsent: true
+      if (!ok) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid credentials. Please verify your DYPIU Juno ERP username and password.'
         });
-        primaryAcc = result.account;
+        return;
       }
 
-      // Generate long-lived JWT token (1 year persistence)
+      // 2. Fetch student profile from Juno ERP
+      const profile = await adapter.getStudentProfile();
+      const canonicalPrn = (profile.prn && profile.prn !== 'N/A' ? profile.prn : cleanUsername).toLowerCase();
+      const userId = `usr_${Buffer.from(canonicalPrn).toString('hex')}`;
+
+      // 3. Check if this student already has an account in this workspace
+      const userAccounts = multiAccountService.getAccounts(userId);
+      let primaryAcc = userAccounts.find(a =>
+        a.isPrimary ||
+        a.prn.toLowerCase() === canonicalPrn ||
+        (profile.email && a.email.toLowerCase() === profile.email.toLowerCase())
+      );
+
+      if (!primaryAcc) {
+        // Link as primary account for this user's isolated workspace
+        const result = await multiAccountService.linkAccountWithAdapter({
+          userId,
+          adapter,
+          profile,
+          username: cleanUsername,
+          password: parsed.password,
+          isPrimary: true
+        });
+        primaryAcc = result.account;
+      } else {
+        // Update session and password for existing account
+        const { encrypt } = await import('../utils/crypto.js');
+        primaryAcc.encryptedPassword = encrypt(parsed.password);
+        primaryAcc.encryptedSession = encrypt(adapter.exportSessionCookies());
+        primaryAcc.encryptedUsername = encrypt(cleanUsername);
+        primaryAcc.connectionStatus = 'CONNECTED';
+        primaryAcc.lastSyncedAt = new Date().toISOString();
+        if (profile.studentName && profile.studentName !== 'Student') {
+          primaryAcc.studentName = profile.studentName;
+        }
+        multiAccountService.updateAccount(primaryAcc);
+      }
+
+      // 4. Generate long-lived JWT token (1 year persistence)
       const token = jwt.sign(
         {
           userId,
