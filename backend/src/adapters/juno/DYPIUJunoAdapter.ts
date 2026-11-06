@@ -445,16 +445,12 @@ export class DYPIUJunoAdapter implements ERPAdapter {
 
   async getTimetable(date?: string): Promise<TimetableSlot[]> {
     try {
-      const today = new Date();
-
-      // Parse targetDay accurately across timezones
-      let targetDay = today.getDay();
-      if (date) {
-        if (date.includes('-')) {
-          const parts = date.split('-').map(Number);
-          if (parts.length === 3) {
-            targetDay = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
-          }
+      // Parse targetDay accurately across timezones using YYYY-MM-DD components
+      let targetDay = new Date().getDay();
+      if (date && date.includes('-')) {
+        const [year, month, day] = date.split('-').map(Number);
+        if (year && month && day) {
+          targetDay = new Date(year, month - 1, day).getDay();
         }
       }
 
@@ -467,32 +463,32 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             subjectName: 'Statistical Mathematics (MCA1001)',
             facultyName: 'Ms. Shraddha S. Ghatol',
             classroom: 'LH-201 (Div - A)',
-            startTime: '09:30',
-            endTime: '10:30'
+            startTime: '09:30 AM',
+            endTime: '10:30 AM'
           },
           {
             dayOfWeek: 1,
             subjectName: 'Data Structure with Python (MCA1003)',
             facultyName: 'Mr. Abhijeet Nitin Jadhav',
             classroom: 'LH-201 (Div - A)',
-            startTime: '10:30',
-            endTime: '11:30'
+            startTime: '10:30 AM',
+            endTime: '11:30 AM'
           },
           {
             dayOfWeek: 1,
             subjectName: 'Design Analysis & Algorithm (MCA1002)',
             facultyName: 'Dr. Kiran Pandey',
             classroom: 'LH-201 (Div - A)',
-            startTime: '11:45',
-            endTime: '12:45'
+            startTime: '11:45 AM',
+            endTime: '12:45 PM'
           },
           {
             dayOfWeek: 1,
             subjectName: 'Data Structure with Python Lab (MCA1003P)',
             facultyName: 'Mr. Abhijeet Nitin Jadhav',
             classroom: 'Computer Lab 3 (Div - A)',
-            startTime: '01:30',
-            endTime: '03:30'
+            startTime: '01:30 PM',
+            endTime: '03:30 PM'
           }
         ],
         // Tuesday (2)
@@ -502,32 +498,32 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             subjectName: 'Design Analysis & Algorithm (MCA1002)',
             facultyName: 'Dr. Kiran Pandey',
             classroom: 'LH-201 (Div - A)',
-            startTime: '09:30',
-            endTime: '10:30'
+            startTime: '09:30 AM',
+            endTime: '10:30 AM'
           },
           {
             dayOfWeek: 2,
             subjectName: 'Artificial Intelligence & Data Science (MCA1005)',
             facultyName: 'Mr. Anurag Madhav Gaikwad',
             classroom: 'LH-201 (Div - A)',
-            startTime: '10:30',
-            endTime: '11:30'
+            startTime: '10:30 AM',
+            endTime: '11:30 AM'
           },
           {
             dayOfWeek: 2,
             subjectName: 'Data Mining & Warehousing (MCA1004)',
             facultyName: 'Mrs. Mayuri Ajinkya Khade',
             classroom: 'LH-201 (Div - A)',
-            startTime: '11:45',
-            endTime: '12:45'
+            startTime: '11:45 AM',
+            endTime: '12:45 PM'
           },
           {
             dayOfWeek: 2,
             subjectName: 'Design Analysis & Algorithm Lab (MCA1002P)',
             facultyName: 'Mr. Rohit Deepak Rane',
             classroom: 'Computer Lab 2 (Div - A)',
-            startTime: '01:30',
-            endTime: '03:30'
+            startTime: '01:30 PM',
+            endTime: '03:30 PM'
           }
         ],
         // Wednesday (3)
@@ -537,32 +533,32 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             subjectName: 'Data Structure with Python (MCA1003)',
             facultyName: 'Mr. Abhijeet Nitin Jadhav',
             classroom: 'LH-201 (Div - A)',
-            startTime: '09:30',
-            endTime: '10:30'
+            startTime: '09:30 AM',
+            endTime: '10:30 AM'
           },
           {
             dayOfWeek: 3,
             subjectName: 'Data Mining & Warehousing (MCA1004)',
             facultyName: 'Mrs. Mayuri Ajinkya Khade',
             classroom: 'LH-201 (Div - A)',
-            startTime: '10:30',
-            endTime: '11:30'
+            startTime: '10:30 AM',
+            endTime: '11:30 AM'
           },
           {
             dayOfWeek: 3,
             subjectName: 'Statistical Mathematics (MCA1001)',
             facultyName: 'Ms. Shraddha S. Ghatol',
             classroom: 'LH-201 (Div - A)',
-            startTime: '11:45',
-            endTime: '12:45'
+            startTime: '11:45 AM',
+            endTime: '12:45 PM'
           },
           {
             dayOfWeek: 3,
             subjectName: 'Artificial Intelligence & Data Science Lab (MCA1005P)',
             facultyName: 'Mr. Anurag Madhav Gaikwad',
             classroom: 'AI Lab (Div - A)',
-            startTime: '01:30',
-            endTime: '03:30'
+            startTime: '01:30 PM',
+            endTime: '03:30 PM'
           }
         ],
         // Thursday (4)
@@ -572,32 +568,32 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             subjectName: 'Statistical Mathematics (MCA1001)',
             facultyName: 'Ms. Shraddha S. Ghatol',
             classroom: 'LH-201 (Div - A)',
-            startTime: '09:30',
-            endTime: '10:30'
+            startTime: '09:30 AM',
+            endTime: '10:30 AM'
           },
           {
             dayOfWeek: 4,
             subjectName: 'Design Analysis & Algorithm (MCA1002)',
             facultyName: 'Dr. Kiran Pandey',
             classroom: 'LH-201 (Div - A)',
-            startTime: '10:30',
-            endTime: '11:30'
+            startTime: '10:30 AM',
+            endTime: '11:30 AM'
           },
           {
             dayOfWeek: 4,
             subjectName: 'Data Structure with Python (MCA1003)',
             facultyName: 'Mr. Abhijeet Nitin Jadhav',
             classroom: 'LH-201 (Div - A)',
-            startTime: '11:45',
-            endTime: '12:45'
+            startTime: '11:45 AM',
+            endTime: '12:45 PM'
           },
           {
             dayOfWeek: 4,
             subjectName: 'Data Mining & Warehousing Lab (MCA1004P)',
             facultyName: 'Mrs. Mayuri Ajinkya Khade',
             classroom: 'Computer Lab 1 (Div - A)',
-            startTime: '01:30',
-            endTime: '03:30'
+            startTime: '01:30 PM',
+            endTime: '03:30 PM'
           }
         ],
         // Friday (5)
@@ -607,32 +603,32 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             subjectName: 'Artificial Intelligence & Data Science (MCA1005)',
             facultyName: 'Mr. Anurag Madhav Gaikwad',
             classroom: 'LH-201 (Div - A)',
-            startTime: '09:30',
-            endTime: '10:30'
+            startTime: '09:30 AM',
+            endTime: '10:30 AM'
           },
           {
             dayOfWeek: 5,
             subjectName: 'Data Mining & Warehousing (MCA1004)',
             facultyName: 'Mrs. Mayuri Ajinkya Khade',
             classroom: 'LH-201 (Div - A)',
-            startTime: '10:30',
-            endTime: '11:30'
+            startTime: '10:30 AM',
+            endTime: '11:30 AM'
           },
           {
             dayOfWeek: 5,
             subjectName: 'Statistical Mathematics (MCA1001)',
             facultyName: 'Ms. Shraddha S. Ghatol',
             classroom: 'LH-201 (Div - A)',
-            startTime: '11:45',
-            endTime: '12:45'
+            startTime: '11:45 AM',
+            endTime: '12:45 PM'
           },
           {
             dayOfWeek: 5,
             subjectName: 'Professional Skills - I (MCA1006)',
             facultyName: 'Mr. Nikhil Goud',
             classroom: 'Seminar Hall 1 (Div - A)',
-            startTime: '01:30',
-            endTime: '03:30'
+            startTime: '01:30 PM',
+            endTime: '03:30 PM'
           }
         ],
         // Saturday (6)
@@ -642,8 +638,8 @@ export class DYPIUJunoAdapter implements ERPAdapter {
             subjectName: 'Professional Skills & Mentorship (MCA1006)',
             facultyName: 'Mr. Nikhil Goud',
             classroom: 'LH-201 (Div - A)',
-            startTime: '10:00',
-            endTime: '12:00'
+            startTime: '10:00 AM',
+            endTime: '12:00 PM'
           }
         ]
       };

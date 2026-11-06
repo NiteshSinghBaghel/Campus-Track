@@ -207,6 +207,10 @@ class MultiAccountService {
     return this.getAccounts(userId);
   }
 
+  setAdapter(accountId: string, adapter: DYPIUJunoAdapter): void {
+    this.adapters.set(accountId, adapter);
+  }
+
   getAccount(id: string): ConnectedAccountRecord | undefined {
     return this.accounts.get(id);
   }
@@ -464,30 +468,19 @@ class MultiAccountService {
   async getAccountTimetable(accountId: string, date?: string): Promise<TimetableSlot[]> {
     const cacheKey = `${accountId}:${date || 'today'}`;
     const cached = this.timetableCache.get(cacheKey);
-    // Return cached timetable if fresh (< 15 minutes) — INSTANT response
+    // Return cached timetable if fresh (< 60 minutes) — INSTANT response
     if (cached && cached.expiresAt > Date.now()) {
       return cached.slots;
     }
 
-    // Always serve from static fallback immediately (< 1ms, no ERP call)
+    // Serve from MCA routine accurately for the date
     const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
     const slots = await fallbackAdapter.getTimetable(date);
 
-    // Cache for 15 minutes
     this.timetableCache.set(cacheKey, {
       slots,
-      expiresAt: Date.now() + 15 * 60 * 1000
+      expiresAt: Date.now() + 60 * 60 * 1000
     });
-
-    // Optionally refresh from live ERP in background (non-blocking)
-    this.getReadyAdapter(accountId).then(adapter =>
-      adapter.getTimetable(date).then(liveSlots => {
-        this.timetableCache.set(cacheKey, {
-          slots: liveSlots,
-          expiresAt: Date.now() + 15 * 60 * 1000
-        });
-      }).catch(() => {}) // silently ignore ERP failures
-    ).catch(() => {});
 
     return slots;
   }
@@ -513,9 +506,17 @@ class MultiAccountService {
   }
 
   removeAccount(id: string): boolean {
+    const account = this.accounts.get(id);
     this.adapters.delete(id);
     const deleted = this.accounts.delete(id);
-    if (deleted) persistAccounts(this.accounts);
+    if (deleted) {
+      persistAccounts(this.accounts);
+      if (account && account.userId) {
+        // Also explicitly update KVdb for this user's remaining accounts
+        const remaining = Array.from(this.accounts.values()).filter(a => a.userId === account.userId);
+        kvPut(account.userId, remaining);
+      }
+    }
     return deleted;
   }
 }

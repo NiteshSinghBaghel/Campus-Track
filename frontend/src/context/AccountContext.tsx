@@ -193,8 +193,41 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const removeAccount = async (id: string) => {
-    await api.removeAccount(id);
-    await refreshAccounts();
+    // 1. Remove from local state immediately
+    const updated = accounts.filter(a => a.id !== id);
+    setAccounts(updated);
+
+    // 2. Remove from localStorage cache immediately so refreshAccounts won't resurrect it
+    const currentUserId = authUser?.userId || (() => {
+      try {
+        const u = localStorage.getItem(LOCAL_USER_KEY);
+        return u ? JSON.parse(u)?.userId : null;
+      } catch {
+        return null;
+      }
+    })();
+    const vaultKey = getVaultKey(currentUserId);
+    try {
+      localStorage.setItem(vaultKey, JSON.stringify(updated));
+    } catch {}
+
+    // 3. Delete on backend
+    try {
+      await api.removeAccount(id);
+    } catch (e) {
+      console.warn('Backend delete failed, syncing state:', e);
+    }
+
+    // 4. Update active account if needed
+    if (activeAccount?.id === id) {
+      const nextActive = updated.find(a => a.isPrimary) || updated[0] || null;
+      setActiveAccountState(nextActive);
+      if (nextActive) {
+        localStorage.setItem(LOCAL_ACTIVE_ID_KEY, nextActive.id);
+      } else {
+        localStorage.removeItem(LOCAL_ACTIVE_ID_KEY);
+      }
+    }
   };
 
   useEffect(() => {

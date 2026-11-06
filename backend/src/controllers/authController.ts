@@ -71,6 +71,8 @@ export const authController = {
           primaryAcc.studentName = profile.studentName;
         }
         multiAccountService.updateAccount(primaryAcc);
+        // Cache the live authenticated adapter so images and session work immediately
+        multiAccountService.setAdapter(primaryAcc.id, adapter);
       }
 
       // 4. Generate long-lived JWT token (1 year persistence)
