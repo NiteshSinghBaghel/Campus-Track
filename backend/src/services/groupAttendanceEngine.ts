@@ -55,7 +55,8 @@ export class GroupAttendanceEngine {
       eligibleAccounts.map(async account => {
         const challengeAnswer = params.challengeResponses?.[account.id];
         try {
-          const adapter = await multiAccountService.getReadyAdapter(account.id);
+          // Use fast-path adapter with skipValidation=true (no 3s isSessionValid delay)
+          const adapter = await multiAccountService.getReadyAdapter(account.id, true);
           const subResult: AttendanceSubmissionResult = await adapter.submitAttendance(sessionInfo, challengeAnswer);
 
           if (subResult.status === 'CONFIRMED') {

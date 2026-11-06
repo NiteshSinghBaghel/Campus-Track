@@ -201,8 +201,7 @@ export const ScannerPage: React.FC = () => {
       await qrCode.start(
         { facingMode: 'environment' },
         {
-          fps: 15,
-          qrbox: { width: 280, height: 190 }
+          fps: 20
         },
         async (decodedText) => {
           if (decodedText === lastScannedPayload && isScanning) return;
@@ -395,8 +394,8 @@ export const ScannerPage: React.FC = () => {
           </div>
         )}
 
-        {/* Instruction Capsule: "Align classroom QR inside frame" */}
-        <div className="mt-5 px-5 py-2 rounded-full bg-black/60 backdrop-blur-md text-[13px] font-medium text-white/90 shadow-md">
+        {/* Instruction Capsule: "Align classroom QR inside frame" - moved lower */}
+        <div className="mt-10 px-5 py-2 rounded-full bg-black/60 backdrop-blur-md text-[13px] font-medium text-white/90 shadow-md">
           Align classroom QR inside frame
         </div>
 
@@ -685,7 +684,16 @@ export const ScannerPage: React.FC = () => {
           50% { opacity: 1; }
           100% { top: 92%; opacity: 0.3; }
         }
-        /* Hide all html5-qrcode library injected overlays */
+        /* Hide all html5-qrcode library injected overlays and white frames */
+        #qr-shaded-region,
+        #qr-shaded-region *,
+        [id*="shaded-region"],
+        [id*="shaded-region"] *,
+        #qr-reader__scan_region svg,
+        #qr-reader__scan_region path,
+        #qr-reader__scan_region div[style*="border"],
+        #qr-reader__scan_region div[style*="Border"],
+        #qr-reader__scan_region > div:not(:has(video)),
         #qr-reader__scan_region img,
         #qr-reader__scan_region > img,
         #qr-reader__dashboard,
@@ -698,6 +706,8 @@ export const ScannerPage: React.FC = () => {
         [id^="qr-reader__"] > button,
         [id^="qr-reader__"] > select {
           display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
         }
         /* Remove any border/outline injected by html5-qrcode */
         #qr-reader {

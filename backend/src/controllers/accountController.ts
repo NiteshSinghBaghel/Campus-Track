@@ -23,6 +23,20 @@ export const accountController = {
     res.json({ success: true, accounts: sanitized });
   },
 
+  syncVault(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { accounts } = req.body;
+      if (Array.isArray(accounts) && accounts.length > 0) {
+        multiAccountService.saveAccountsBulk(accounts);
+      }
+      const all = multiAccountService.getAccounts(req.user?.userId || '');
+      const sanitized = all.map(({ encryptedPassword, encryptedSession, ...rest }) => rest);
+      res.json({ success: true, accounts: sanitized });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
   async linkAccount(req: AuthenticatedRequest, res: Response) {
     try {
       const parsed = linkAccountSchema.parse(req.body);

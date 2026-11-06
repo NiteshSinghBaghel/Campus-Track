@@ -111,45 +111,51 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
-      const list = await api.getAccounts();
-      const safeList = list || [];
+      const list: StudentAccount[] = await api.getAccounts();
+      const safeList: StudentAccount[] = list || [];
 
-      // If server returned empty list but we have cached accounts locally,
-      // keep showing cached data (server may have restarted and lost accounts.json)
-      if (safeList.length === 0) {
-        const cachedRaw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
-        if (cachedRaw) {
+      // Check if we had accounts cached locally that are missing from server
+      let finalAccounts: StudentAccount[] = safeList;
+      const cachedRaw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+      if (cachedRaw) {
+        try {
           const cached: StudentAccount[] = JSON.parse(cachedRaw);
-          if (cached.length > 0) {
-            console.warn('[AccountContext] Server returned 0 accounts but cache has', cached.length, '— keeping cached accounts.');
-            // Don't overwrite state with empty; keep existing
-            setLoading(false);
-            return;
+          if (Array.isArray(cached) && cached.length > 0) {
+            // Find any accounts in cache that are missing from server list
+            const missing = cached.filter((c: StudentAccount) =>
+              !safeList.some((s: StudentAccount) => s.id === c.id || (s.prn && c.prn && s.prn.toLowerCase() === c.prn.toLowerCase()))
+            );
+            if (missing.length > 0) {
+              console.log('[AccountContext] Restoring', missing.length, 'missing accounts from local storage vault');
+              finalAccounts = [...safeList, ...missing];
+              // Restore to backend so backend also has them in memory/disk
+              api.syncVault(finalAccounts).catch(() => {});
+            }
           }
-        }
+        } catch {}
       }
 
-      setAccounts(safeList);
+      setAccounts(finalAccounts);
       try {
-        localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(safeList));
+        localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(finalAccounts));
       } catch {}
 
       setActiveAccountState(prev => {
-        if (safeList.length === 0) {
+        if (finalAccounts.length === 0) {
           localStorage.removeItem(LOCAL_ACTIVE_ID_KEY);
           return null;
         }
         const storedId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
         if (storedId) {
-          const foundStored = safeList.find(a => a.id === storedId);
+          const foundStored = finalAccounts.find((a: StudentAccount) => a.id === storedId);
           if (foundStored) return foundStored;
         }
         if (prev) {
-          const found = safeList.find(a => a.id === prev.id);
+          const found = finalAccounts.find((a: StudentAccount) => a.id === prev.id);
           if (found) return found;
         }
-        const primary = safeList.find(a => a.isPrimary);
-        return primary || safeList[0];
+        const primary = finalAccounts.find((a: StudentAccount) => a.isPrimary);
+        return primary || finalAccounts[0];
       });
     } catch (err: any) {
       console.error('Failed to load accounts:', err);

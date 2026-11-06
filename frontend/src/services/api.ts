@@ -123,6 +123,19 @@ export const api = {
     }
   },
 
+  async syncVault(accounts: any[]): Promise<StudentAccount[]> {
+    try {
+      const data = await request<{ success: boolean; accounts: StudentAccount[] }>(`${API_BASE}/accounts/sync-vault`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accounts })
+      });
+      return data.accounts || [];
+    } catch {
+      return [];
+    }
+  },
+
   async linkAccount(params: {
     username: string;
     password: string;

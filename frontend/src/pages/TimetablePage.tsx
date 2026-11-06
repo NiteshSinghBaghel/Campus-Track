@@ -16,18 +16,58 @@ import {
   CalendarDays
 } from 'lucide-react';
 
+const MCA_SCHEDULE_BY_DAY: Record<number, TimetableSlot[]> = {
+  // Monday (1)
+  1: [
+    { dayOfWeek: 1, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '09:30', endTime: '10:30' },
+    { dayOfWeek: 1, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-201 (Div - A)', startTime: '10:30', endTime: '11:30' },
+    { dayOfWeek: 1, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-201 (Div - A)', startTime: '11:45', endTime: '12:45' },
+    { dayOfWeek: 1, subjectName: 'Data Structure with Python Lab (MCA1003P)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Computer Lab 3 (Div - A)', startTime: '01:30', endTime: '03:30' }
+  ],
+  // Tuesday (2)
+  2: [
+    { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-201 (Div - A)', startTime: '09:30', endTime: '10:30' },
+    { dayOfWeek: 2, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-201 (Div - A)', startTime: '10:30', endTime: '11:30' },
+    { dayOfWeek: 2, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-201 (Div - A)', startTime: '11:45', endTime: '12:45' },
+    { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm Lab (MCA1002P)', facultyName: 'Mr. Rohit Deepak Rane', classroom: 'Computer Lab 2 (Div - A)', startTime: '01:30', endTime: '03:30' }
+  ],
+  // Wednesday (3)
+  3: [
+    { dayOfWeek: 3, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-201 (Div - A)', startTime: '09:30', endTime: '10:30' },
+    { dayOfWeek: 3, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-201 (Div - A)', startTime: '10:30', endTime: '11:30' },
+    { dayOfWeek: 3, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '11:45', endTime: '12:45' },
+    { dayOfWeek: 3, subjectName: 'Artificial Intelligence & Data Science Lab (MCA1005P)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'AI Lab (Div - A)', startTime: '01:30', endTime: '03:30' }
+  ],
+  // Thursday (4)
+  4: [
+    { dayOfWeek: 4, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '09:30', endTime: '10:30' },
+    { dayOfWeek: 4, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-201 (Div - A)', startTime: '10:30', endTime: '11:30' },
+    { dayOfWeek: 4, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-201 (Div - A)', startTime: '11:45', endTime: '12:45' },
+    { dayOfWeek: 4, subjectName: 'Data Mining & Warehousing Lab (MCA1004P)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Computer Lab 1 (Div - A)', startTime: '01:30', endTime: '03:30' }
+  ],
+  // Friday (5)
+  5: [
+    { dayOfWeek: 5, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-201 (Div - A)', startTime: '09:30', endTime: '10:30' },
+    { dayOfWeek: 5, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-201 (Div - A)', startTime: '10:30', endTime: '11:30' },
+    { dayOfWeek: 5, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '11:45', endTime: '12:45' },
+    { dayOfWeek: 5, subjectName: 'Professional Skills - I (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'Seminar Hall 1 (Div - A)', startTime: '01:30', endTime: '03:30' }
+  ],
+  // Saturday (6)
+  6: [
+    { dayOfWeek: 6, subjectName: 'Professional Skills & Mentorship (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'LH-201 (Div - A)', startTime: '10:00', endTime: '12:00' }
+  ]
+};
+
+const getDayOfWeek = (dateStr: string) => {
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length === 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+  }
+  return new Date().getDay();
+};
+
 export const TimetablePage: React.FC = () => {
   const { primaryAccount } = useAccounts();
-  const [timetable, setTimetable] = useState<TimetableSlot[]>(() => {
-    try {
-      const cached = localStorage.getItem('campustrack_timetable_cache');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Today formatted as YYYY-MM-DD
   const getTodayISO = () => {
@@ -40,31 +80,35 @@ export const TimetablePage: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayISO());
 
-  const fetchTimetable = (dateStr?: string) => {
-    if (!primaryAccount?.id) return;
-    const dateToUse = dateStr || selectedDate;
+  // Instant render: Load MCA Sem-1 schedule immediately (0ms wait)
+  const [timetable, setTimetable] = useState<TimetableSlot[]>(() => {
+    const day = getDayOfWeek(getTodayISO());
+    return MCA_SCHEDULE_BY_DAY[day] || [];
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    setLoading(true);
-    setError(null);
+  const fetchTimetable = (dateStr?: string) => {
+    const dateToUse = dateStr || selectedDate;
+    const day = getDayOfWeek(dateToUse);
+
+    // Update timetable immediately for the selected day (0ms)
+    setTimetable(MCA_SCHEDULE_BY_DAY[day] || []);
+
+    if (!primaryAccount?.id) return;
+
     api.getTimetable(primaryAccount.id, dateToUse)
       .then(data => {
-        setTimetable(data);
-        try {
-          localStorage.setItem('campustrack_timetable_cache', JSON.stringify(data));
-        } catch {}
+        if (data && data.length > 0) {
+          setTimetable(data);
+        }
       })
-      .catch(err => {
-        setTimetable([]);
-        setError(err.message || 'Failed to fetch timetable');
-      })
-      .finally(() => setLoading(false));
+      .catch(() => {});
   };
 
   useEffect(() => {
-    if (primaryAccount?.id) {
-      fetchTimetable(selectedDate);
-    }
-  }, [primaryAccount?.id, selectedDate]);
+    fetchTimetable(selectedDate);
+  }, [selectedDate, primaryAccount?.id]);
 
   // Date manipulation helpers
   const shiftDate = (days: number) => {

@@ -7,6 +7,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', accountController.getAccounts);
+router.post('/sync-vault', accountController.syncVault);
 router.post('/link', accountController.linkAccount);
 router.get('/:id/image', accountController.getAccountImage);
 router.post('/:id/sync', accountController.syncAccount);

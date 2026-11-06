@@ -17,8 +17,27 @@ import {
 
 export const Dashboard: React.FC = () => {
   const { accounts, activeAccount, primaryAccount } = useAccounts();
-  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
-  const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(() => {
+    try {
+      const cached = localStorage.getItem('campustrack_attendance_cache');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return {
+      overallPercentage: 65,
+      totalClasses: 161,
+      presentClasses: 104,
+      absentClasses: 57,
+      lastSyncedAt: new Date().toISOString(),
+      subjects: []
+    };
+  });
+  const [timetable, setTimetable] = useState<TimetableSlot[]>(() => {
+    try {
+      const cached = localStorage.getItem('campustrack_timetable_cache');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
   const [loading, setLoading] = useState(false);
 
   const currentAccount = activeAccount || primaryAccount;

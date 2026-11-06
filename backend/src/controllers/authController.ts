@@ -20,12 +20,15 @@ export const authController = {
       const parsed = loginSchema.parse(req.body);
       const cleanUsername = parsed.username.trim();
 
-      // Deterministic user ID based on PRN/Username to keep user workspaces strictly separated
-      const userId = `usr_${Buffer.from(cleanUsername.toLowerCase()).toString('hex')}`;
+      // Check if primary account already exists in database (matching email, PRN, or userId)
+      const allAccounts = multiAccountService.getAccounts('');
+      let primaryAcc = allAccounts.find(a =>
+        a.isPrimary ||
+        a.prn.toLowerCase() === cleanUsername.toLowerCase() ||
+        a.email.toLowerCase() === cleanUsername.toLowerCase()
+      );
 
-      // Check if primary account already exists for this user in DB
-      const existingAccounts = multiAccountService.getAccounts(userId);
-      let primaryAcc = existingAccounts.find(a => a.isPrimary);
+      const userId = primaryAcc?.userId || `usr_${Buffer.from(cleanUsername.toLowerCase()).toString('hex')}`;
 
       if (!primaryAcc) {
         // Link as primary account
