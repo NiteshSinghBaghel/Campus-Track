@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Campus Track — DYPIU Student Platform',
-        short_name: 'CampusTrack',
-        description: 'Multi-Account Attendance & Student Platform for D. Y. Patil International University',
+        name: 'Campus Track',
+        short_name: 'Campus Track',
+        description: 'DYPIU Attendance & Student Platform',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
@@ -41,10 +41,6 @@ export default defineConfig({
           { name: 'Attendance', short_name: 'Attendance', description: 'Mark attendance', url: '/attendance', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
           { name: 'Timetable', short_name: 'Timetable', description: 'View timetable', url: '/timetable', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
           { name: 'Scanner', short_name: 'Scanner', description: 'QR Scanner', url: '/scanner', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] }
-        ],
-        screenshots: [
-          { src: '/screenshots/wide.png', sizes: '1280x720', type: 'image/png', form_factor: 'wide', label: 'Campus Track Dashboard' },
-          { src: '/screenshots/narrow.png', sizes: '750x1334', type: 'image/png', form_factor: 'narrow', label: 'Campus Track Mobile' }
         ]
       },
       workbox: {

@@ -25,6 +25,20 @@
     <meta name="msapplication-TileColor" content="#0f172a" />
     <meta name="msapplication-TileImage" content="/icons/icon-144.png" />
     <meta name="msapplication-config" content="/browserconfig.xml" />
+
+    <!-- Early PWA Install Prompt Capture -->
+    <script>
+      window.__deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__deferredPrompt = e;
+        window.dispatchEvent(new Event('pwa-prompt-ready'));
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__deferredPrompt = null;
+        window.dispatchEvent(new Event('pwa-installed'));
+      });
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>

@@ -29,10 +29,13 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
 
   // PWA Install state
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(
+    () => (window as any).__deferredPrompt || null
+  );
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     // Check if already installed
@@ -46,38 +49,93 @@ export const LoginPage: React.FC = () => {
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIosDevice);
 
-    // Listen for beforeinstallprompt event (Chrome, Android, Edge)
+    // If early prompt was already captured
+    if ((window as any).__deferredPrompt) {
+      setDeferredPrompt((window as any).__deferredPrompt);
+    }
+
+    const handlePromptReady = () => {
+      if ((window as any).__deferredPrompt) {
+        setDeferredPrompt((window as any).__deferredPrompt);
+      }
+    };
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
+      (window as any).__deferredPrompt = e;
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    window.addEventListener('appinstalled', () => {
+    const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
-    });
+      (window as any).__deferredPrompt = null;
+    };
+
+    window.addEventListener('pwa-prompt-ready', handlePromptReady);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      window.removeEventListener('pwa-prompt-ready', handlePromptReady);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        setIsInstalled(true);
+    const promptEvent = deferredPrompt || (window as any).__deferredPrompt;
+
+    if (promptEvent) {
+      try {
+        setInstalling(true);
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice.outcome === 'accepted') {
+          setIsInstalled(true);
+        }
+        setDeferredPrompt(null);
+        (window as any).__deferredPrompt = null;
+      } catch (err) {
+        console.error('Install prompt error:', err);
+      } finally {
+        setInstalling(false);
       }
-      setDeferredPrompt(null);
-    } else if (isIOS) {
-      setShowIOSInstructions(prev => !prev);
-    } else {
-      // General instructions modal/alert for browsers that don't support beforeinstallprompt
-      alert('To install Campus Track app:\n\n• On Chrome / Android: tap 3-dots (menu) → "Add to Home screen" or "Install App".\n• On iPhone: tap Share icon → "Add to Home Screen".');
+      return;
     }
+
+    if (isIOS) {
+      setShowIOSInstructions(prev => !prev);
+      return;
+    }
+
+    // If browser hasn't fired beforeinstallprompt yet, wait briefly and trigger if captured
+    setInstalling(true);
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      const latePrompt = (window as any).__deferredPrompt;
+      if (latePrompt) {
+        clearInterval(interval);
+        setInstalling(false);
+        try {
+          await latePrompt.prompt();
+          const res = await latePrompt.userChoice;
+          if (res.outcome === 'accepted') {
+            setIsInstalled(true);
+          }
+          (window as any).__deferredPrompt = null;
+          setDeferredPrompt(null);
+        } catch (e) {
+          console.error(e);
+        }
+      } else if (attempts >= 8) {
+        clearInterval(interval);
+        setInstalling(false);
+        // Fallback for browsers without install prompt (do not show annoying alert, show subtle instructions)
+        setShowIOSInstructions(true);
+      }
+    }, 200);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,24 +175,38 @@ export const LoginPage: React.FC = () => {
 
             <button
               onClick={handleInstallClick}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-white font-extrabold text-xs shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition-all shrink-0 active:scale-95 cursor-pointer"
+              disabled={installing}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-white font-extrabold text-xs shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition-all shrink-0 active:scale-95 cursor-pointer disabled:opacity-75"
             >
-              <Download className="w-3.5 h-3.5" />
-              Install
+              <Download className={`w-3.5 h-3.5 ${installing ? 'animate-spin' : ''}`} />
+              {installing ? 'Opening...' : 'Install'}
             </button>
           </div>
 
-          {/* iOS Safari Instructions Accordion */}
-          {showIOSInstructions && isIOS && (
+          {/* iOS Safari / Other Browser Instructions Accordion */}
+          {showIOSInstructions && (
             <div className="mt-2 p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-300 space-y-2 animate-in fade-in">
-              <p className="font-bold text-white flex items-center gap-1.5">
-                <Share className="w-3.5 h-3.5 text-indigo-400" /> Install on iPhone / Safari:
-              </p>
-              <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
-                <li>Tap the <strong>Share</strong> button at bottom of Safari</li>
-                <li>Scroll down and tap <strong>"Add to Home Screen"</strong> <PlusSquare className="w-3 h-3 inline text-slate-400" /></li>
-                <li>Tap <strong>"Add"</strong> in top right corner</li>
-              </ol>
+              {isIOS ? (
+                <>
+                  <p className="font-bold text-white flex items-center gap-1.5">
+                    <Share className="w-3.5 h-3.5 text-indigo-400" /> Install on iPhone / Safari:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+                    <li>Tap the <strong>Share</strong> button at bottom of Safari</li>
+                    <li>Scroll down and tap <strong>"Add to Home Screen"</strong> <PlusSquare className="w-3 h-3 inline text-slate-400" /></li>
+                    <li>Tap <strong>"Add"</strong> in top right corner</li>
+                  </ol>
+                </>
+              ) : (
+                <>
+                  <p className="font-bold text-white flex items-center gap-1.5">
+                    <Download className="w-3.5 h-3.5 text-indigo-400" /> Install to Home Screen:
+                  </p>
+                  <p className="text-[11px] text-slate-300">
+                    Tap browser menu (3-dots ⋮) &rarr; tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
