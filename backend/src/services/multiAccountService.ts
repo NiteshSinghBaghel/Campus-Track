@@ -17,7 +17,7 @@ function kvKey(userId: string) {
 function kvGet(userId: string): Promise<ConnectedAccountRecord[] | null> {
   return new Promise((resolve) => {
     const url = `https://kvdb.io/${KVDB_BUCKET}/${kvKey(userId)}`;
-    https.get(url, (res) => {
+    const req = https.get(url, { timeout: 2500 }, (res) => {
       let body = '';
       res.on('data', (chunk: Buffer) => { body += chunk.toString(); });
       res.on('end', () => {
@@ -29,7 +29,12 @@ function kvGet(userId: string): Promise<ConnectedAccountRecord[] | null> {
         }
         resolve(null);
       });
-    }).on('error', () => resolve(null));
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', () => resolve(null));
   });
 }
 
@@ -42,12 +47,17 @@ function kvPut(userId: string, records: ConnectedAccountRecord[]): Promise<boole
         hostname: url.hostname,
         path: url.pathname,
         method: 'PUT',
+        timeout: 3000,
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': body.length
         }
       }, (res) => {
         resolve(res.statusCode === 200);
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
       });
       req.on('error', () => resolve(false));
       req.write(body);

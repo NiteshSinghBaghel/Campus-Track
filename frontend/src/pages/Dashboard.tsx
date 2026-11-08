@@ -17,23 +17,40 @@ import {
 
 export const Dashboard: React.FC = () => {
   const { accounts, activeAccount, primaryAccount } = useAccounts();
+  const currentAccount = activeAccount || primaryAccount;
+
   const [attendance, setAttendance] = useState<AttendanceSummary | null>(() => {
     try {
+      if (currentAccount?.id) {
+        const cachedAtt = localStorage.getItem(`att_cache_${currentAccount.id}`);
+        if (cachedAtt) {
+          const parsed = JSON.parse(cachedAtt);
+          if (parsed?.data) return parsed.data;
+        }
+        const cachedPageAtt = localStorage.getItem(`campustrack_att_${currentAccount.id}`);
+        if (cachedPageAtt) return JSON.parse(cachedPageAtt);
+      }
       const cached = localStorage.getItem('campustrack_attendance_cache');
       if (cached) return JSON.parse(cached);
     } catch {}
     return null;
   });
+
   const [timetable, setTimetable] = useState<TimetableSlot[]>(() => {
     try {
+      if (currentAccount?.id) {
+        const cachedTt = localStorage.getItem(`tt_cache_${currentAccount.id}`);
+        if (cachedTt) {
+          const parsed = JSON.parse(cachedTt);
+          if (parsed?.data) return parsed.data;
+        }
+      }
       const cached = localStorage.getItem('campustrack_timetable_cache');
       if (cached) return JSON.parse(cached);
     } catch {}
     return [];
   });
   const [loading, setLoading] = useState(false);
-
-  const currentAccount = activeAccount || primaryAccount;
 
   useEffect(() => {
     if (!currentAccount) return;
@@ -42,25 +59,30 @@ export const Dashboard: React.FC = () => {
     try {
       const cachedAtt = localStorage.getItem(`att_cache_${currentAccount.id}`);
       if (cachedAtt) {
-        const { data, ts } = JSON.parse(cachedAtt);
-        if (Date.now() - ts < 10 * 60 * 1000) setAttendance(data);
+        const { data } = JSON.parse(cachedAtt);
+        if (data) setAttendance(data);
+      } else {
+        const cachedPageAtt = localStorage.getItem(`campustrack_att_${currentAccount.id}`);
+        if (cachedPageAtt) setAttendance(JSON.parse(cachedPageAtt));
       }
       const cachedTt = localStorage.getItem(`tt_cache_${currentAccount.id}`);
       if (cachedTt) {
-        const { data, ts } = JSON.parse(cachedTt);
-        if (Date.now() - ts < 15 * 60 * 1000) setTimetable(data);
+        const { data } = JSON.parse(cachedTt);
+        if (data) setTimetable(data);
       }
     } catch {}
 
     // 2. Fetch fresh data in background (non-blocking)
-    setLoading(true);
     Promise.all([
       api.getAttendance(currentAccount.id).catch(() => null),
       api.getTimetable(currentAccount.id).catch(() => [])
     ]).then(([attData, ttData]) => {
       if (attData) {
         setAttendance(attData);
-        try { localStorage.setItem(`att_cache_${currentAccount.id}`, JSON.stringify({ data: attData, ts: Date.now() })); } catch {}
+        try { 
+          localStorage.setItem(`att_cache_${currentAccount.id}`, JSON.stringify({ data: attData, ts: Date.now() })); 
+          localStorage.setItem(`campustrack_att_${currentAccount.id}`, JSON.stringify(attData));
+        } catch {}
       }
       if (ttData && ttData.length > 0) {
         setTimetable(ttData);

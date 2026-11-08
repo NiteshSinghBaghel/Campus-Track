@@ -103,7 +103,22 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(() => {
+    // Instant workspace ready: if user has a token AND already cached accounts, don't block the UI with full-screen spinner
+    if (!hasToken) return false;
+    try {
+      const u = localStorage.getItem(LOCAL_USER_KEY);
+      const uid = u ? JSON.parse(u)?.userId : null;
+      const cached = localStorage.getItem(getVaultKey(uid));
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return false; // Instant ready! Render dashboard immediately
+        }
+      }
+    } catch {}
+    return true; // only wait if first time with no cached accounts
+  });
 
   const primaryAccount = accounts.find(a => a.isPrimary) || (accounts.length > 0 ? accounts[0] : null);
 
