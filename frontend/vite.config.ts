@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Campus Track',
-        short_name: 'Campus Track',
+        name: 'DYPIU TRACK',
+        short_name: 'DYPIU TRACK',
         description: 'DYPIU Attendance & Student Platform',
         theme_color: '#0f172a',
         background_color: '#0f172a',

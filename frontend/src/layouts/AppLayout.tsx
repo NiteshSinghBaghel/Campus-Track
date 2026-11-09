@@ -44,12 +44,12 @@ export const AppLayout: React.FC = () => {
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white border-r border-slate-800 p-4 shrink-0">
         <div className="flex items-center gap-3 px-3 py-4 border-b border-slate-800 mb-6">
           {/* Top Left Branding: Application Name + Logo */}
-          <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 shadow-lg shadow-indigo-500/25">
-            <img src="/icons/icon-192.png" alt="Campus Track" className="w-full h-full object-cover" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 shadow-lg shadow-indigo-500/25 bg-white p-1">
+            <img src="/icons/icon-192.png" alt="DYPIU TRACK" className="w-full h-full object-contain" />
           </div>
           <div className="min-w-0">
             <h1 className="font-bold text-base leading-tight tracking-tight text-white truncate">
-              Campus Track
+              DYPIU TRACK
             </h1>
             <p className="text-[11px] text-indigo-400 font-medium truncate">
               DYPIU Juno ERP
@@ -139,7 +139,7 @@ export const AppLayout: React.FC = () => {
           <button
             onClick={logout}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
-            title="Log out from Campus Track"
+            title="Log out from DYPIU TRACK"
           >
             <LogOut className="w-3.5 h-3.5" />
             Sign Out
@@ -153,12 +153,12 @@ export const AppLayout: React.FC = () => {
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 md:hidden">
             {/* Mobile Top Left: App Logo + Name */}
-            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-md shrink-0">
-              <img src="/icons/icon-192.png" alt="Campus Track" className="w-full h-full object-cover" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-md shrink-0 bg-white p-0.5 border border-slate-100">
+              <img src="/icons/icon-192.png" alt="DYPIU TRACK" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
               <span className="font-bold text-sm tracking-tight text-slate-900 truncate block">
-                Campus Track
+                DYPIU TRACK
               </span>
             </div>
           </div>
@@ -233,7 +233,7 @@ export const AppLayout: React.FC = () => {
                       className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-all"
                     >
                       <LogOut className="w-3.5 h-3.5" />
-                      Sign Out from Campus Track
+                      Sign Out from DYPIU TRACK
                     </button>
                   </div>
                 </div>

@@ -192,7 +192,7 @@ export const LoginPage: React.FC = () => {
                 <Download className="w-4 h-4 animate-bounce" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-900 truncate">Install Campus Track App</p>
+                <p className="text-xs font-bold text-slate-900 truncate">Install DYPIU TRACK App</p>
                 <p className="text-[10px] text-slate-500 truncate">Add to phone home screen (PWA)</p>
               </div>
             </div>
@@ -242,9 +242,9 @@ export const LoginPage: React.FC = () => {
         {/* App Branding Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl overflow-hidden shadow-xl shadow-slate-200/80 mb-4 bg-white p-2 border border-slate-100 animate-in zoom-in-50">
-            <img src="/icons/icon-192.png" alt="Campus Track" className="w-full h-full object-contain" />
+            <img src="/icons/icon-192.png" alt="DYPIU TRACK" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Campus Track</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">DYPIU TRACK</h1>
           <p className="text-sm text-slate-500 font-medium mt-1">
             D. Y. Patil International University (DYPIU)
           </p>
