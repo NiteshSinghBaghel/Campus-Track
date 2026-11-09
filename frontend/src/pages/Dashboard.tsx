@@ -264,6 +264,9 @@ export const Dashboard: React.FC = () => {
                           Primary
                         </span>
                       )}
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-bold">
+                        {account.semester?.toUpperCase().includes('B') ? 'Div B' : 'Div A'}
+                      </span>
                     </div>
                     <p className="text-xs text-slate-500 truncate">{account.prn} • {account.program}</p>
                   </div>

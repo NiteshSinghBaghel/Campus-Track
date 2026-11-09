@@ -270,27 +270,29 @@ export const AttendancePage: React.FC = () => {
 
       {/* Overall Attendance Circular Card matching Screenshot 1 */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center justify-between">
-        {/* Left: Circular progress gauge */}
-        <div className="relative w-32 h-32 flex items-center justify-center shrink-0">
-          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+        {/* Left: Circular progress gauge with exact centered viewBox and percentage fit */}
+        <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 140 140">
             {/* Background track */}
-            <circle cx="60" cy="60" r="48" stroke="#f1f5f9" strokeWidth="9" fill="none" />
+            <circle cx="70" cy="70" r="54" stroke="#f1f5f9" strokeWidth="10" fill="none" />
             {/* Colored arc (yellow/amber #eab308) */}
             <circle
-              cx="60"
-              cy="60"
-              r="48"
+              cx="70"
+              cy="70"
+              r="54"
               stroke="#eab308"
-              strokeWidth="9"
+              strokeWidth="10"
               fill="none"
-              strokeDasharray="301.59"
-              strokeDashoffset={301.59 * (1 - overallPct / 100)}
+              strokeDasharray="339.29"
+              strokeDashoffset={339.29 * (1 - overallPct / 100)}
               strokeLinecap="round"
             />
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-3xl font-black text-slate-900 tracking-tight leading-none">{overallPct}%</span>
-            <span className="text-xs font-medium text-slate-400 mt-1">Overall</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-2">
+            <span className="text-2xl sm:text-[26px] font-black text-slate-900 tracking-tight leading-none whitespace-nowrap">
+              {Number(overallPct).toFixed(Number(overallPct) % 1 === 0 ? 0 : 2)}%
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider">Overall</span>
           </div>
         </div>
 

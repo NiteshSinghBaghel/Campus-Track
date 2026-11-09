@@ -133,13 +133,16 @@ export const AccountsPage: React.FC = () => {
                     </div>
 
                     <div className="mt-1 space-y-0.5">
-                      <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-slate-700 flex flex-wrap items-center gap-1.5">
                         <span className="font-mono text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-bold">
                           {acc.prn}
                         </span>
+                        <span className="text-xs px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100/60">
+                          Section: {acc.semester?.toUpperCase().includes('B') ? 'Div B' : 'Div A'}
+                        </span>
                         {acc.semester && (
-                          <span className="text-slate-500 font-medium">
-                            • Sec/Div: {acc.semester}
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            ({acc.semester})
                           </span>
                         )}
                       </p>
