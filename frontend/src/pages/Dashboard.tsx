@@ -243,14 +243,24 @@ export const Dashboard: React.FC = () => {
             {accounts.map(account => (
               <div key={account.id} className="py-3.5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-sm shrink-0">
-                    {account.studentName.slice(0, 2).toUpperCase()}
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-800 flex items-center justify-center relative">
+                    <img
+                      src={api.getAccountImageUrl(account.id)}
+                      alt={account.studentName}
+                      className="w-full h-full object-cover z-10"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <span className="font-bold text-white text-xs absolute z-0">
+                      {account.studentName.slice(0, 2).toUpperCase()}
+                    </span>
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-sm text-slate-900 truncate">{account.studentName}</p>
                       {account.isPrimary && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-600 font-bold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold">
                           Primary
                         </span>
                       )}
@@ -260,12 +270,9 @@ export const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-                    account.connectionStatus === 'CONNECTED'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {account.connectionStatus}
+                  <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Connected
                   </span>
                   <span className="text-sm font-extrabold text-slate-800 w-12 text-right">
                     {account.attendancePercentage}%
