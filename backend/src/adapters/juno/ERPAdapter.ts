@@ -73,7 +73,7 @@ export interface ERPAdapter {
   isSessionValid(): Promise<boolean>;
   getStudentProfile(): Promise<StudentProfile>;
   getAttendance(termId?: string): Promise<AttendanceSummary>;
-  getTimetable(date?: string): Promise<TimetableSlot[]>;
+  getTimetable(date?: string, program?: string, division?: string): Promise<TimetableSlot[]>;
   getResults(): Promise<ExamResult[]>;
   decodeQRSession(qrPayload: string): Promise<QRSessionInfo>;
   submitAttendance(sessionInfo: QRSessionInfo, challengeResponse?: string): Promise<AttendanceSubmissionResult>;

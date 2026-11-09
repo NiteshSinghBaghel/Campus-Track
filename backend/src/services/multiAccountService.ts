@@ -484,16 +484,20 @@ class MultiAccountService {
   }
 
   async getAccountTimetable(accountId: string, date?: string): Promise<TimetableSlot[]> {
-    const cacheKey = `${accountId}:${date || 'today'}`;
+    const account = this.accounts.get(accountId);
+    const program = account?.program || 'MCA';
+    const division = (account?.semester?.match(/DIV\s*-\s*([A-Z])/i)?.[1]) || 'A';
+
+    const cacheKey = `${accountId}:${date || 'today'}:${division}`;
     const cached = this.timetableCache.get(cacheKey);
     // Return cached timetable if fresh (< 60 minutes) — INSTANT response
     if (cached && cached.expiresAt > Date.now()) {
       return cached.slots;
     }
 
-    // Serve from MCA routine accurately for the date
+    // Serve from student's specific program & division allotment
     const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
-    const slots = await fallbackAdapter.getTimetable(date);
+    const slots = await fallbackAdapter.getTimetable(date, program, division);
 
     this.timetableCache.set(cacheKey, {
       slots,

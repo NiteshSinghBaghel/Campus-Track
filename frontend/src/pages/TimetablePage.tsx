@@ -16,7 +16,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 
-const MCA_SCHEDULE_BY_DAY: Record<number, TimetableSlot[]> = {
+const MCA_SCHEDULE_DIV_A: Record<number, TimetableSlot[]> = {
   // Monday (1)
   1: [
     { dayOfWeek: 1, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '09:30 AM', endTime: '10:30 AM' },
@@ -58,6 +58,48 @@ const MCA_SCHEDULE_BY_DAY: Record<number, TimetableSlot[]> = {
   ]
 };
 
+const MCA_SCHEDULE_DIV_B: Record<number, TimetableSlot[]> = {
+  1: [
+    { dayOfWeek: 1, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-202 (Div - B)', startTime: '09:30 AM', endTime: '10:30 AM' },
+    { dayOfWeek: 1, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-202 (Div - B)', startTime: '10:30 AM', endTime: '11:30 AM' },
+    { dayOfWeek: 1, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-202 (Div - B)', startTime: '11:45 AM', endTime: '12:45 PM' },
+    { dayOfWeek: 1, subjectName: 'Data Mining & Warehousing Lab (MCA1004P)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Computer Lab 2 (Div - B)', startTime: '01:30 PM', endTime: '03:30 PM' }
+  ],
+  2: [
+    { dayOfWeek: 2, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-202 (Div - B)', startTime: '09:30 AM', endTime: '10:30 AM' },
+    { dayOfWeek: 2, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-202 (Div - B)', startTime: '10:30 AM', endTime: '11:30 AM' },
+    { dayOfWeek: 2, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-202 (Div - B)', startTime: '11:45 AM', endTime: '12:45 PM' },
+    { dayOfWeek: 2, subjectName: 'Data Structure with Python Lab (MCA1003P)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Computer Lab 1 (Div - B)', startTime: '01:30 PM', endTime: '03:30 PM' }
+  ],
+  3: [
+    { dayOfWeek: 3, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-202 (Div - B)', startTime: '09:30 AM', endTime: '10:30 AM' },
+    { dayOfWeek: 3, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-202 (Div - B)', startTime: '10:30 AM', endTime: '11:30 AM' },
+    { dayOfWeek: 3, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-202 (Div - B)', startTime: '11:45 AM', endTime: '12:45 PM' },
+    { dayOfWeek: 3, subjectName: 'Design Analysis & Algorithm Lab (MCA1002P)', facultyName: 'Mr. Rohit Deepak Rane', classroom: 'Computer Lab 3 (Div - B)', startTime: '01:30 PM', endTime: '03:30 PM' }
+  ],
+  4: [
+    { dayOfWeek: 4, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-202 (Div - B)', startTime: '09:30 AM', endTime: '10:30 AM' },
+    { dayOfWeek: 4, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-202 (Div - B)', startTime: '10:30 AM', endTime: '11:30 AM' },
+    { dayOfWeek: 4, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-202 (Div - B)', startTime: '11:45 AM', endTime: '12:45 PM' },
+    { dayOfWeek: 4, subjectName: 'Artificial Intelligence & Data Science Lab (MCA1005P)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'AI Lab (Div - B)', startTime: '01:30 PM', endTime: '03:30 PM' }
+  ],
+  5: [
+    { dayOfWeek: 5, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-202 (Div - B)', startTime: '09:30 AM', endTime: '10:30 AM' },
+    { dayOfWeek: 5, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-202 (Div - B)', startTime: '10:30 AM', endTime: '11:30 AM' },
+    { dayOfWeek: 5, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-202 (Div - B)', startTime: '11:45 AM', endTime: '12:45 PM' },
+    { dayOfWeek: 5, subjectName: 'Professional Skills - I (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'Seminar Hall 2 (Div - B)', startTime: '01:30 PM', endTime: '03:30 PM' }
+  ],
+  6: [
+    { dayOfWeek: 6, subjectName: 'Professional Skills & Mentorship (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'LH-202 (Div - B)', startTime: '10:00 AM', endTime: '12:00 PM' }
+  ]
+};
+
+const getScheduleForAccount = (division: string, day: number): TimetableSlot[] => {
+  const isB = division.toUpperCase().includes('B');
+  const map = isB ? MCA_SCHEDULE_DIV_B : MCA_SCHEDULE_DIV_A;
+  return map[day] || [];
+};
+
 const getDayOfWeek = (dateStr: string) => {
   if (dateStr && dateStr.includes('-')) {
     const [year, month, day] = dateStr.split('-').map(Number);
@@ -69,7 +111,9 @@ const getDayOfWeek = (dateStr: string) => {
 };
 
 export const TimetablePage: React.FC = () => {
-  const { primaryAccount } = useAccounts();
+  const { accounts, activeAccount, primaryAccount, setActiveAccount } = useAccounts();
+  const currentAccount = activeAccount || primaryAccount;
+  const currentDiv = currentAccount?.semester || 'A';
 
   // Today formatted as YYYY-MM-DD
   const getTodayISO = () => {
@@ -82,10 +126,10 @@ export const TimetablePage: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayISO());
 
-  // Instant render: Load MCA Sem-1 schedule immediately (0ms wait)
+  // Instant render: Load schedule mapped to student's division immediately (0ms wait)
   const [timetable, setTimetable] = useState<TimetableSlot[]>(() => {
     const day = getDayOfWeek(getTodayISO());
-    return MCA_SCHEDULE_BY_DAY[day] || [];
+    return getScheduleForAccount(currentDiv, day);
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,12 +138,12 @@ export const TimetablePage: React.FC = () => {
     const dateToUse = dateStr || selectedDate;
     const day = getDayOfWeek(dateToUse);
 
-    // Update timetable immediately for the selected day (0ms)
-    setTimetable(MCA_SCHEDULE_BY_DAY[day] || []);
+    // Update timetable immediately for the selected day according to student allotment (0ms)
+    setTimetable(getScheduleForAccount(currentDiv, day));
 
-    if (!primaryAccount?.id) return;
+    if (!currentAccount?.id) return;
 
-    api.getTimetable(primaryAccount.id, dateToUse)
+    api.getTimetable(currentAccount.id, dateToUse)
       .then(data => {
         if (data && data.length > 0) {
           setTimetable(data);
@@ -110,7 +154,7 @@ export const TimetablePage: React.FC = () => {
 
   useEffect(() => {
     fetchTimetable(selectedDate);
-  }, [selectedDate, primaryAccount?.id]);
+  }, [selectedDate, currentAccount?.id, currentDiv]);
 
   // Date manipulation helpers
   const shiftDate = (days: number) => {
@@ -185,27 +229,59 @@ export const TimetablePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary User Badge Card */}
-      {primaryAccount && (
+      {/* Account Selector Pill for Multi-Account support */}
+      {accounts.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {accounts.map(acc => {
+            const isSelected = acc.id === currentAccount?.id;
+            return (
+              <button
+                key={acc.id}
+                onClick={() => setActiveAccount(acc)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span>{acc.studentName}</span>
+                {acc.isPrimary && <Star className="w-3 h-3 text-amber-400 fill-current" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Selected Student Information Card */}
+      {currentAccount && (
         <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
-              {primaryAccount.studentName.slice(0, 2).toUpperCase()}
+              {currentAccount.studentName.slice(0, 2).toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-slate-900">{primaryAccount.studentName}</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-extrabold flex items-center gap-1">
-                  <Star className="w-3 h-3 fill-current" /> Primary Account
+                <p className="text-sm font-bold text-slate-900">{currentAccount.studentName}</p>
+                {currentAccount.isPrimary ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-extrabold flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-current" /> Primary
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
+                    Connected
+                  </span>
+                )}
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold">
+                  {currentDiv.includes('B') ? 'DIV - B' : 'DIV - A'}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                PRN: {primaryAccount.prn} • {primaryAccount.program}
+                PRN: {currentAccount.prn} • {currentAccount.program}
               </p>
             </div>
           </div>
           <span className="text-xs font-bold px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
-            {primaryAccount.attendancePercentage}% Attendance
+            {currentAccount.attendancePercentage}% Attendance
           </span>
         </div>
       )}
