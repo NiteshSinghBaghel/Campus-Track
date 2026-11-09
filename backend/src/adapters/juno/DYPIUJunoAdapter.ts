@@ -445,6 +445,57 @@ export class DYPIUJunoAdapter implements ERPAdapter {
   }
 
   async getTimetable(date?: string, program = 'MCA', division = 'A'): Promise<TimetableSlot[]> {
+    // 1. Live API Query: Attempt to query live timetable endpoints from Juno ERP
+    try {
+      const endpointsToTry = [
+        `/stu_getStudentTimeTable.json${date ? `?date=${encodeURIComponent(date)}` : ''}`,
+        `/stu_getTimeTableDetails.json${date ? `?date=${encodeURIComponent(date)}` : ''}`,
+        `/stu_getTimeTable.json${date ? `?date=${encodeURIComponent(date)}` : ''}`,
+        `/getTimeTableForStudent.json${date ? `?date=${encodeURIComponent(date)}` : ''}`
+      ];
+
+      for (const endpoint of endpointsToTry) {
+        try {
+          const res = await this.api.get(endpoint, {
+            timeout: 2500,
+            headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` }
+          });
+          const raw = safeParseJson(res.data);
+          const list = Array.isArray(raw)
+            ? raw
+            : (raw?.timeTableList || raw?.timetable || raw?.TimeTable || raw?.data || []);
+
+          if (Array.isArray(list) && list.length > 0) {
+            const parsedSlots: TimetableSlot[] = list.map((item: any, idx: number) => {
+              const start = item.startTime || item.fromTime || item.lectureStartTime || '09:30 AM';
+              const end = item.endTime || item.toTime || item.lectureEndTime || '10:30 AM';
+              const sub = item.subjectName || item.courseName || item.subject || `Lecture ${idx + 1}`;
+              const faculty = item.facultyName || item.faculty || item.teacherName || 'Staff Member';
+              const room = item.roomNo || item.classroom || item.classRoom || item.hallName || 'Classroom';
+              const day = item.dayOfWeek || item.day || new Date().getDay();
+
+              return {
+                dayOfWeek: Number(day) || 1,
+                subjectName: sub,
+                facultyName: faculty,
+                classroom: room,
+                startTime: start,
+                endTime: end
+              };
+            });
+
+            if (parsedSlots.length > 0) {
+              return parsedSlots;
+            }
+          }
+        } catch {
+          // Continue trying next candidate endpoint
+        }
+      }
+    } catch (e) {
+      if (this.debug) console.warn('[DYPIUJunoAdapter] Live timetable query error:', e);
+    }
+
     try {
       // Parse targetDay accurately across timezones using YYYY-MM-DD components
       let targetDay = new Date().getDay();

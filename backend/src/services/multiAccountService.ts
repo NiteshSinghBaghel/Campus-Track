@@ -490,18 +490,33 @@ class MultiAccountService {
 
     const cacheKey = `${accountId}:${date || 'today'}:${division}`;
     const cached = this.timetableCache.get(cacheKey);
-    // Return cached timetable if fresh (< 60 minutes) — INSTANT response
+    // Return cached timetable if fresh (< 30 minutes) — INSTANT response
     if (cached && cached.expiresAt > Date.now()) {
       return cached.slots;
     }
 
-    // Serve from student's specific program & division allotment
+    try {
+      // 1. First attempt: Try fetching live timetable directly via student's authenticated session
+      const readyAdapter = await this.getReadyAdapter(accountId);
+      const liveSlots = await readyAdapter.getTimetable(date, program, division);
+      if (liveSlots && liveSlots.length > 0) {
+        this.timetableCache.set(cacheKey, {
+          slots: liveSlots,
+          expiresAt: Date.now() + 30 * 60 * 1000
+        });
+        return liveSlots;
+      }
+    } catch (e) {
+      console.warn(`[MultiAccountService] Live timetable fetch attempt notice for ${accountId}:`, e);
+    }
+
+    // 2. Fallback: Serve student's program & division routine
     const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
     const slots = await fallbackAdapter.getTimetable(date, program, division);
 
     this.timetableCache.set(cacheKey, {
       slots,
-      expiresAt: Date.now() + 60 * 60 * 1000
+      expiresAt: Date.now() + 30 * 60 * 1000
     });
 
     return slots;
