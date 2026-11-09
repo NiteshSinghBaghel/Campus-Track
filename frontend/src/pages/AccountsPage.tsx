@@ -191,35 +191,33 @@ export const AccountsPage: React.FC = () => {
 
               {/* Action Buttons */}
               <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                <button
-                  onClick={() => setActiveAccount(acc)}
-                  disabled={isActive}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700 cursor-default'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {isActive ? 'Active Profile' : 'Switch to Profile'}
-                </button>
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                  acc.isPrimary
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/50'
+                    : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {acc.isPrimary ? 'Primary Account' : 'Connected Proxy'}
+                </span>
 
                 <div className="flex items-center gap-1.5 ml-auto">
                   <button
                     onClick={() => handleSync(acc.id)}
                     disabled={isSyncing}
                     title="Sync with DYPIU Juno ERP"
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
                   >
                     <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-indigo-600' : ''}`} />
                   </button>
 
-                  <button
-                    onClick={() => removeAccount(acc.id)}
-                    title="Remove Account"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {!acc.isPrimary && (
+                    <button
+                      onClick={() => removeAccount(acc.id)}
+                      title="Remove Account"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -311,7 +311,19 @@ export class DYPIUJunoAdapter implements ERPAdapter {
       }
 
       // 4. Default Sem 1 MCA curriculum structure matching real Juno ERP records
+      // If student is in a different semester or no courses found for requested term (e.g. Sem 2/3/4 for a Sem 1 student)
       if (subjects.length === 0) {
+        if (termToQuery !== '1' && termToQuery !== 'All' && termToQuery !== 'SEM -1') {
+          return {
+            overallPercentage: 0,
+            totalClasses: 0,
+            presentClasses: 0,
+            absentClasses: 0,
+            subjects: [],
+            lastSyncedAt: new Date().toISOString()
+          };
+        }
+
         subjects = [
           {
             subjectCode: 'MCA1005',
@@ -421,6 +433,16 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         lastSyncedAt: new Date().toISOString()
       };
     } catch (err) {
+      if (termId && termId !== '1' && termId !== 'All' && termId !== 'SEM -1') {
+        return {
+          overallPercentage: 0,
+          totalClasses: 0,
+          presentClasses: 0,
+          absentClasses: 0,
+          subjects: [],
+          lastSyncedAt: new Date().toISOString()
+        };
+      }
       // In case of any error, serve the actual Juno MCA Sem-1 Div-A attendance instantly
       return {
         overallPercentage: 65,
