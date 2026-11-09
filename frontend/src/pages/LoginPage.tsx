@@ -76,7 +76,31 @@ export const LoginPage: React.FC = () => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    // Auto-prompt on first visit (after 1.5 seconds)
+    const hasPromptedBefore = sessionStorage.getItem('pwa_prompted_once');
+    let autoTimer: any = null;
+    if (!hasPromptedBefore) {
+      autoTimer = setTimeout(async () => {
+        const prompt = (window as any).__deferredPrompt;
+        if (prompt) {
+          sessionStorage.setItem('pwa_prompted_once', 'true');
+          try {
+            await prompt.prompt();
+            const choice = await prompt.userChoice;
+            if (choice.outcome === 'accepted') {
+              setIsInstalled(true);
+            }
+            setDeferredPrompt(null);
+            (window as any).__deferredPrompt = null;
+          } catch (e) {
+            console.warn('Auto install prompt:', e);
+          }
+        }
+      }, 1500);
+    }
+
     return () => {
+      if (autoTimer) clearTimeout(autoTimer);
       window.removeEventListener('pwa-prompt-ready', handlePromptReady);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);

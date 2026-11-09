@@ -6,13 +6,12 @@ import './index.css';
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js')
     .then((reg) => {
+      // Auto-update SW without blocking confirm()
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing;
         newSW?.addEventListener('statechange', () => {
           if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            if (confirm('New version available. Reload to update?')) {
-              window.location.reload();
-            }
+            newSW.postMessage({ type: 'SKIP_WAITING' });
           }
         });
       });
