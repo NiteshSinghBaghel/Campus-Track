@@ -479,24 +479,24 @@ export const ScannerPage: React.FC = () => {
 
       {/* Switch Accounts Modal */}
       {showSwitchModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-5">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom-5">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                   <User className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-white">Target Student Accounts</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="font-extrabold text-base text-slate-900">Target Student Accounts</h3>
+                  <p className="text-xs text-slate-500">
                     Selected for Attendance ({selectedAccounts.length}/{accounts.length})
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowSwitchModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -506,13 +506,13 @@ export const ScannerPage: React.FC = () => {
             <div className="flex items-center gap-2 mb-4">
               <button
                 onClick={handleSelectAll}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-all"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition-all cursor-pointer"
               >
                 Select All ({accounts.length})
               </button>
               <button
                 onClick={handleDeselectAll}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-400 transition-all"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-500 transition-all cursor-pointer"
               >
                 Deselect All
               </button>
@@ -530,8 +530,8 @@ export const ScannerPage: React.FC = () => {
                     onClick={() => handleToggleAccount(acc.id)}
                     className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all select-none ${
                       isSelected
-                        ? 'bg-emerald-950/40 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30'
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:bg-slate-800/70'
+                        ? 'bg-emerald-50/70 border-emerald-400 shadow-sm ring-1 ring-emerald-400/40'
+                        : 'bg-white border-slate-200/80 text-slate-500 hover:bg-slate-50'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -539,8 +539,8 @@ export const ScannerPage: React.FC = () => {
                       <div
                         className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
                           isSelected
-                            ? 'bg-emerald-500 border-emerald-500 text-black font-bold'
-                            : 'border-slate-600 bg-slate-800'
+                            ? 'bg-emerald-500 border-emerald-500 text-white font-bold'
+                            : 'border-slate-300 bg-white'
                         }`}
                       >
                         {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -548,27 +548,31 @@ export const ScannerPage: React.FC = () => {
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-xs text-white truncate">{acc.studentName}</p>
+                          <p className="font-bold text-sm text-slate-900 truncate">{acc.studentName}</p>
                           {acc.isPrimary && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold shrink-0 flex items-center gap-0.5">
+                            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-extrabold shrink-0 flex items-center gap-0.5">
                               <Star className="w-2.5 h-2.5 fill-current" /> Primary
                             </span>
                           )}
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-bold shrink-0">
+                            {acc.semester?.toUpperCase().includes('B') ? 'Div B' : 'Div A'}
+                          </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                          {acc.prn} • {acc.program}
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          <span className="font-mono text-slate-700 font-semibold">{acc.prn}</span> • {acc.program}
                         </p>
                       </div>
                     </div>
 
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ml-2 ${
+                      className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-bold shrink-0 ml-2 ${
                         isConnected
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-slate-800 text-slate-400'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-slate-100 text-slate-500'
                       }`}
                     >
-                      {acc.connectionStatus}
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      CONNECTED
                     </span>
                   </div>
                 );
@@ -582,10 +586,10 @@ export const ScannerPage: React.FC = () => {
             </div>
 
             {/* Done Button */}
-            <div className="pt-4 mt-3 border-t border-slate-800">
+            <div className="pt-4 mt-3 border-t border-slate-100">
               <button
                 onClick={() => setShowSwitchModal(false)}
-                className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all"
+                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
               >
                 Done ({selectedAccounts.length} Selected)
               </button>
@@ -596,20 +600,20 @@ export const ScannerPage: React.FC = () => {
 
       {/* Attendance Confirmation Result Sheet */}
       {batchResult && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
               <div>
-                <span className="text-emerald-400 font-extrabold text-xs tracking-wider uppercase flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Attendance Confirmed
+                <span className="text-emerald-700 font-extrabold text-xs tracking-wider uppercase flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Attendance Confirmed
                 </span>
-                <h3 className="font-extrabold text-base text-white mt-1">
+                <h3 className="font-extrabold text-base text-slate-900 mt-1">
                   {batchResult.subjectName || 'Course Attendance'} ({batchResult.subjectCode || 'SUB'})
                 </h3>
               </div>
               <button
                 onClick={() => navigate('/')}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                 title="Go to Dashboard"
               >
                 <X className="w-4 h-4" />
@@ -617,36 +621,36 @@ export const ScannerPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 mb-4">
-              <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30 flex items-center gap-1">
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1">
                 <Check className="w-3.5 h-3.5" /> {batchResult.totalPresent} Marked Present
               </span>
               {batchResult.totalRequiresVerification > 0 && (
-                <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
+                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200">
                   {batchResult.totalRequiresVerification} Verification Needed
                 </span>
               )}
               {batchResult.totalFailed > 0 && (
-                <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/30">
+                <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
                   {batchResult.totalFailed} Failed
                 </span>
               )}
             </div>
 
             {/* List of target students and their status */}
-            <div className="divide-y divide-slate-800 bg-slate-950/60 rounded-2xl border border-slate-800/80 p-3 mb-5">
+            <div className="divide-y divide-slate-100 bg-slate-50/70 rounded-2xl border border-slate-200/80 p-3 mb-5">
               {batchResult.results.map((res, i) => (
                 <div key={i} className="py-2.5 px-2 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-bold text-xs text-white truncate">{res.studentName}</p>
-                    <p className="text-[11px] text-slate-400 truncate">{res.prn} • {res.message}</p>
+                    <p className="font-bold text-sm text-slate-900 truncate">{res.studentName}</p>
+                    <p className="text-xs text-slate-500 truncate">{res.prn} • {res.message}</p>
                   </div>
                   {res.status === 'PRESENT' && (
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-500/30 shrink-0">
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center gap-1 border border-emerald-200 shrink-0">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Present
                     </span>
                   )}
                   {res.status === 'FAILED' && (
-                    <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-1 border border-rose-500/30 shrink-0">
+                    <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-1 border border-rose-200 shrink-0">
                       <AlertCircle className="w-3.5 h-3.5" /> Failed
                     </span>
                   )}
@@ -658,7 +662,7 @@ export const ScannerPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center gap-3">
               <button
                 onClick={() => navigate('/')}
-                className="w-full py-3.5 rounded-2xl bg-[#22c55e] hover:bg-emerald-400 text-black font-extrabold text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all"
+                className="w-full py-3.5 rounded-2xl bg-slate-900 hover:bg-black text-white font-extrabold text-sm shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <Check className="w-4 h-4 stroke-[3]" /> Done & Back to Dashboard
               </button>
