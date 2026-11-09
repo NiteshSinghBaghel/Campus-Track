@@ -458,190 +458,190 @@ export class DYPIUJunoAdapter implements ERPAdapter {
       const cleanDiv = (division || 'A').toUpperCase().replace(/[^A-Z]/g, '') || 'A';
       const isDivB = cleanDiv === 'B';
 
-      // Section A Schedule (LH-201 / Labs)
+      // Official DYPIU MCA SEM-1 Section A Routine as per official Juno allotment (Screenshot verified)
       const mcaScheduleDivA: Record<number, TimetableSlot[]> = {
         // Monday (1)
         1: [
           {
             dayOfWeek: 1,
-            subjectName: 'Statistical Mathematics (MCA1001)',
+            subjectName: 'Statistical Mathematics',
             facultyName: 'Ms. Shraddha S. Ghatol',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '09:30 AM',
-            endTime: '10:30 AM'
+            classroom: 'Classroom',
+            startTime: '12:40 PM',
+            endTime: '01:30 PM'
           },
           {
             dayOfWeek: 1,
-            subjectName: 'Data Structure with Python (MCA1003)',
-            facultyName: 'Mr. Abhijeet Nitin Jadhav',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '10:30 AM',
-            endTime: '11:30 AM'
+            subjectName: 'Artificial Intelligence & Data Science',
+            facultyName: 'Mr. Anurag Madhav Gaikwad',
+            classroom: 'Classroom',
+            startTime: '04:00 PM',
+            endTime: '04:50 PM'
           },
           {
             dayOfWeek: 1,
-            subjectName: 'Design Analysis & Algorithm (MCA1002)',
-            facultyName: 'Dr. Kiran Pandey',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '11:45 AM',
-            endTime: '12:45 PM'
+            subjectName: 'Data Mining & Warehousing',
+            facultyName: 'Mrs. Mayuri Ajinkya Khade',
+            classroom: 'Classroom',
+            startTime: '04:50 PM',
+            endTime: '05:40 PM'
           },
           {
             dayOfWeek: 1,
-            subjectName: 'Data Structure with Python Lab (MCA1003P)',
-            facultyName: 'Mr. Abhijeet Nitin Jadhav',
-            classroom: 'Computer Lab 3 (Div - A)',
-            startTime: '01:30 PM',
-            endTime: '03:30 PM'
+            subjectName: 'Artificial Intelligence & Data Science',
+            facultyName: 'Mr. Anurag Madhav Gaikwad',
+            classroom: 'Classroom 313',
+            startTime: '05:40 PM',
+            endTime: '06:30 PM'
           }
         ],
         // Tuesday (2)
         2: [
           {
             dayOfWeek: 2,
-            subjectName: 'Design Analysis & Algorithm (MCA1002)',
+            subjectName: 'Design Analysis & Algorithm',
             facultyName: 'Dr. Kiran Pandey',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '09:30 AM',
-            endTime: '10:30 AM'
+            classroom: 'Classroom',
+            startTime: '12:40 PM',
+            endTime: '01:30 PM'
           },
           {
             dayOfWeek: 2,
-            subjectName: 'Artificial Intelligence & Data Science (MCA1005)',
-            facultyName: 'Mr. Anurag Madhav Gaikwad',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '10:30 AM',
-            endTime: '11:30 AM'
+            subjectName: 'Statistical Mathematics',
+            facultyName: 'Ms. Shraddha S. Ghatol',
+            classroom: 'Classroom',
+            startTime: '04:00 PM',
+            endTime: '04:50 PM'
           },
           {
             dayOfWeek: 2,
-            subjectName: 'Data Mining & Warehousing (MCA1004)',
-            facultyName: 'Mrs. Mayuri Ajinkya Khade',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '11:45 AM',
-            endTime: '12:45 PM'
+            subjectName: 'Data Structure with Python',
+            facultyName: 'Mr. Abhijeet Nitin Jadhav',
+            classroom: 'Classroom',
+            startTime: '04:50 PM',
+            endTime: '05:40 PM'
           },
           {
             dayOfWeek: 2,
-            subjectName: 'Design Analysis & Algorithm Lab (MCA1002P)',
-            facultyName: 'Mr. Rohit Deepak Rane',
-            classroom: 'Computer Lab 2 (Div - A)',
-            startTime: '01:30 PM',
-            endTime: '03:30 PM'
+            subjectName: 'Design Analysis & Algorithm Lab',
+            facultyName: 'Dr. Kiran Pandey',
+            classroom: 'Computer Lab 2',
+            startTime: '05:40 PM',
+            endTime: '06:30 PM'
           }
         ],
         // Wednesday (3)
         3: [
           {
             dayOfWeek: 3,
-            subjectName: 'Data Structure with Python (MCA1003)',
+            subjectName: 'Data Structure with Python',
             facultyName: 'Mr. Abhijeet Nitin Jadhav',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '09:30 AM',
-            endTime: '10:30 AM'
+            classroom: 'Classroom',
+            startTime: '12:40 PM',
+            endTime: '01:30 PM'
           },
           {
             dayOfWeek: 3,
-            subjectName: 'Data Mining & Warehousing (MCA1004)',
+            subjectName: 'Design Analysis & Algorithm',
+            facultyName: 'Dr. Kiran Pandey',
+            classroom: 'Classroom',
+            startTime: '04:00 PM',
+            endTime: '04:50 PM'
+          },
+          {
+            dayOfWeek: 3,
+            subjectName: 'Data Mining & Warehousing',
             facultyName: 'Mrs. Mayuri Ajinkya Khade',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '10:30 AM',
-            endTime: '11:30 AM'
+            classroom: 'Classroom',
+            startTime: '04:50 PM',
+            endTime: '05:40 PM'
           },
           {
             dayOfWeek: 3,
-            subjectName: 'Statistical Mathematics (MCA1001)',
-            facultyName: 'Ms. Shraddha S. Ghatol',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '11:45 AM',
-            endTime: '12:45 PM'
-          },
-          {
-            dayOfWeek: 3,
-            subjectName: 'Artificial Intelligence & Data Science Lab (MCA1005P)',
+            subjectName: 'Artificial Intelligence & Data Science Lab',
             facultyName: 'Mr. Anurag Madhav Gaikwad',
-            classroom: 'AI Lab (Div - A)',
-            startTime: '01:30 PM',
-            endTime: '03:30 PM'
+            classroom: 'AI Lab 313',
+            startTime: '05:40 PM',
+            endTime: '06:30 PM'
           }
         ],
         // Thursday (4)
         4: [
           {
             dayOfWeek: 4,
-            subjectName: 'Statistical Mathematics (MCA1001)',
-            facultyName: 'Ms. Shraddha S. Ghatol',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '09:30 AM',
-            endTime: '10:30 AM'
-          },
-          {
-            dayOfWeek: 4,
-            subjectName: 'Design Analysis & Algorithm (MCA1002)',
-            facultyName: 'Dr. Kiran Pandey',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '10:30 AM',
-            endTime: '11:30 AM'
-          },
-          {
-            dayOfWeek: 4,
-            subjectName: 'Data Structure with Python (MCA1003)',
-            facultyName: 'Mr. Abhijeet Nitin Jadhav',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '11:45 AM',
-            endTime: '12:45 PM'
-          },
-          {
-            dayOfWeek: 4,
-            subjectName: 'Data Mining & Warehousing Lab (MCA1004P)',
+            subjectName: 'Data Mining & Warehousing',
             facultyName: 'Mrs. Mayuri Ajinkya Khade',
-            classroom: 'Computer Lab 1 (Div - A)',
-            startTime: '01:30 PM',
-            endTime: '03:30 PM'
+            classroom: 'Classroom',
+            startTime: '12:40 PM',
+            endTime: '01:30 PM'
+          },
+          {
+            dayOfWeek: 4,
+            subjectName: 'Statistical Mathematics',
+            facultyName: 'Ms. Shraddha S. Ghatol',
+            classroom: 'Classroom',
+            startTime: '04:00 PM',
+            endTime: '04:50 PM'
+          },
+          {
+            dayOfWeek: 4,
+            subjectName: 'Artificial Intelligence & Data Science',
+            facultyName: 'Mr. Anurag Madhav Gaikwad',
+            classroom: 'Classroom',
+            startTime: '04:50 PM',
+            endTime: '05:40 PM'
+          },
+          {
+            dayOfWeek: 4,
+            subjectName: 'Data Structure with Python Lab',
+            facultyName: 'Mr. Abhijeet Nitin Jadhav',
+            classroom: 'Computer Lab 3',
+            startTime: '05:40 PM',
+            endTime: '06:30 PM'
           }
         ],
         // Friday (5)
         5: [
           {
             dayOfWeek: 5,
-            subjectName: 'Artificial Intelligence & Data Science (MCA1005)',
-            facultyName: 'Mr. Anurag Madhav Gaikwad',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '09:30 AM',
-            endTime: '10:30 AM'
-          },
-          {
-            dayOfWeek: 5,
-            subjectName: 'Data Mining & Warehousing (MCA1004)',
-            facultyName: 'Mrs. Mayuri Ajinkya Khade',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '10:30 AM',
-            endTime: '11:30 AM'
-          },
-          {
-            dayOfWeek: 5,
-            subjectName: 'Statistical Mathematics (MCA1001)',
+            subjectName: 'Statistical Mathematics',
             facultyName: 'Ms. Shraddha S. Ghatol',
-            classroom: 'LH-201 (Div - A)',
-            startTime: '11:45 AM',
-            endTime: '12:45 PM'
+            classroom: 'Classroom',
+            startTime: '12:40 PM',
+            endTime: '01:30 PM'
           },
           {
             dayOfWeek: 5,
-            subjectName: 'Professional Skills - I (MCA1006)',
+            subjectName: 'Design Analysis & Algorithm',
+            facultyName: 'Dr. Kiran Pandey',
+            classroom: 'Classroom',
+            startTime: '04:00 PM',
+            endTime: '04:50 PM'
+          },
+          {
+            dayOfWeek: 5,
+            subjectName: 'Professional Skills - I',
             facultyName: 'Mr. Nikhil Goud',
-            classroom: 'Seminar Hall 1 (Div - A)',
-            startTime: '01:30 PM',
-            endTime: '03:30 PM'
+            classroom: 'Classroom',
+            startTime: '04:50 PM',
+            endTime: '05:40 PM'
+          },
+          {
+            dayOfWeek: 5,
+            subjectName: 'Data Mining & Warehousing Lab',
+            facultyName: 'Mrs. Mayuri Ajinkya Khade',
+            classroom: 'Computer Lab 1',
+            startTime: '05:40 PM',
+            endTime: '06:30 PM'
           }
         ],
         // Saturday (6)
         6: [
           {
             dayOfWeek: 6,
-            subjectName: 'Professional Skills & Mentorship (MCA1006)',
+            subjectName: 'Professional Skills & Mentorship',
             facultyName: 'Mr. Nikhil Goud',
-            classroom: 'LH-201 (Div - A)',
+            classroom: 'Classroom',
             startTime: '10:00 AM',
             endTime: '12:00 PM'
           }

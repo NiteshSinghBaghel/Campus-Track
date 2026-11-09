@@ -19,42 +19,42 @@ import {
 const MCA_SCHEDULE_DIV_A: Record<number, TimetableSlot[]> = {
   // Monday (1)
   1: [
-    { dayOfWeek: 1, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '09:30 AM', endTime: '10:30 AM' },
-    { dayOfWeek: 1, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-201 (Div - A)', startTime: '10:30 AM', endTime: '11:30 AM' },
-    { dayOfWeek: 1, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-201 (Div - A)', startTime: '11:45 AM', endTime: '12:45 PM' },
-    { dayOfWeek: 1, subjectName: 'Data Structure with Python Lab (MCA1003P)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Computer Lab 3 (Div - A)', startTime: '01:30 PM', endTime: '03:30 PM' }
+    { dayOfWeek: 1, subjectName: 'Statistical Mathematics', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'Classroom', startTime: '12:40 PM', endTime: '01:30 PM' },
+    { dayOfWeek: 1, subjectName: 'Artificial Intelligence & Data Science', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'Classroom', startTime: '04:00 PM', endTime: '04:50 PM' },
+    { dayOfWeek: 1, subjectName: 'Data Mining & Warehousing', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Classroom', startTime: '04:50 PM', endTime: '05:40 PM' },
+    { dayOfWeek: 1, subjectName: 'Artificial Intelligence & Data Science', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'Classroom 313', startTime: '05:40 PM', endTime: '06:30 PM' }
   ],
   // Tuesday (2)
   2: [
-    { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-201 (Div - A)', startTime: '09:30 AM', endTime: '10:30 AM' },
-    { dayOfWeek: 2, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-201 (Div - A)', startTime: '10:30 AM', endTime: '11:30 AM' },
-    { dayOfWeek: 2, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-201 (Div - A)', startTime: '11:45 AM', endTime: '12:45 PM' },
-    { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm Lab (MCA1002P)', facultyName: 'Mr. Rohit Deepak Rane', classroom: 'Computer Lab 2 (Div - A)', startTime: '01:30 PM', endTime: '03:30 PM' }
+    { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm', facultyName: 'Dr. Kiran Pandey', classroom: 'Classroom', startTime: '12:40 PM', endTime: '01:30 PM' },
+    { dayOfWeek: 2, subjectName: 'Statistical Mathematics', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'Classroom', startTime: '04:00 PM', endTime: '04:50 PM' },
+    { dayOfWeek: 2, subjectName: 'Data Structure with Python', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Classroom', startTime: '04:50 PM', endTime: '05:40 PM' },
+    { dayOfWeek: 2, subjectName: 'Design Analysis & Algorithm Lab', facultyName: 'Dr. Kiran Pandey', classroom: 'Computer Lab 2', startTime: '05:40 PM', endTime: '06:30 PM' }
   ],
   // Wednesday (3)
   3: [
-    { dayOfWeek: 3, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-201 (Div - A)', startTime: '09:30 AM', endTime: '10:30 AM' },
-    { dayOfWeek: 3, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-201 (Div - A)', startTime: '10:30 AM', endTime: '11:30 AM' },
-    { dayOfWeek: 3, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '11:45 AM', endTime: '12:45 PM' },
-    { dayOfWeek: 3, subjectName: 'Artificial Intelligence & Data Science Lab (MCA1005P)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'AI Lab (Div - A)', startTime: '01:30 PM', endTime: '03:30 PM' }
+    { dayOfWeek: 3, subjectName: 'Data Structure with Python', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Classroom', startTime: '12:40 PM', endTime: '01:30 PM' },
+    { dayOfWeek: 3, subjectName: 'Design Analysis & Algorithm', facultyName: 'Dr. Kiran Pandey', classroom: 'Classroom', startTime: '04:00 PM', endTime: '04:50 PM' },
+    { dayOfWeek: 3, subjectName: 'Data Mining & Warehousing', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Classroom', startTime: '04:50 PM', endTime: '05:40 PM' },
+    { dayOfWeek: 3, subjectName: 'Artificial Intelligence & Data Science Lab', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'AI Lab 313', startTime: '05:40 PM', endTime: '06:30 PM' }
   ],
   // Thursday (4)
   4: [
-    { dayOfWeek: 4, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '09:30 AM', endTime: '10:30 AM' },
-    { dayOfWeek: 4, subjectName: 'Design Analysis & Algorithm (MCA1002)', facultyName: 'Dr. Kiran Pandey', classroom: 'LH-201 (Div - A)', startTime: '10:30 AM', endTime: '11:30 AM' },
-    { dayOfWeek: 4, subjectName: 'Data Structure with Python (MCA1003)', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'LH-201 (Div - A)', startTime: '11:45 AM', endTime: '12:45 PM' },
-    { dayOfWeek: 4, subjectName: 'Data Mining & Warehousing Lab (MCA1004P)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Computer Lab 1 (Div - A)', startTime: '01:30 PM', endTime: '03:30 PM' }
+    { dayOfWeek: 4, subjectName: 'Data Mining & Warehousing', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Classroom', startTime: '12:40 PM', endTime: '01:30 PM' },
+    { dayOfWeek: 4, subjectName: 'Statistical Mathematics', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'Classroom', startTime: '04:00 PM', endTime: '04:50 PM' },
+    { dayOfWeek: 4, subjectName: 'Artificial Intelligence & Data Science', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'Classroom', startTime: '04:50 PM', endTime: '05:40 PM' },
+    { dayOfWeek: 4, subjectName: 'Data Structure with Python Lab', facultyName: 'Mr. Abhijeet Nitin Jadhav', classroom: 'Computer Lab 3', startTime: '05:40 PM', endTime: '06:30 PM' }
   ],
   // Friday (5)
   5: [
-    { dayOfWeek: 5, subjectName: 'Artificial Intelligence & Data Science (MCA1005)', facultyName: 'Mr. Anurag Madhav Gaikwad', classroom: 'LH-201 (Div - A)', startTime: '09:30 AM', endTime: '10:30 AM' },
-    { dayOfWeek: 5, subjectName: 'Data Mining & Warehousing (MCA1004)', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'LH-201 (Div - A)', startTime: '10:30 AM', endTime: '11:30 AM' },
-    { dayOfWeek: 5, subjectName: 'Statistical Mathematics (MCA1001)', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'LH-201 (Div - A)', startTime: '11:45 AM', endTime: '12:45 PM' },
-    { dayOfWeek: 5, subjectName: 'Professional Skills - I (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'Seminar Hall 1 (Div - A)', startTime: '01:30 PM', endTime: '03:30 PM' }
+    { dayOfWeek: 5, subjectName: 'Statistical Mathematics', facultyName: 'Ms. Shraddha S. Ghatol', classroom: 'Classroom', startTime: '12:40 PM', endTime: '01:30 PM' },
+    { dayOfWeek: 5, subjectName: 'Design Analysis & Algorithm', facultyName: 'Dr. Kiran Pandey', classroom: 'Classroom', startTime: '04:00 PM', endTime: '04:50 PM' },
+    { dayOfWeek: 5, subjectName: 'Professional Skills - I', facultyName: 'Mr. Nikhil Goud', classroom: 'Classroom', startTime: '04:50 PM', endTime: '05:40 PM' },
+    { dayOfWeek: 5, subjectName: 'Data Mining & Warehousing Lab', facultyName: 'Mrs. Mayuri Ajinkya Khade', classroom: 'Computer Lab 1', startTime: '05:40 PM', endTime: '06:30 PM' }
   ],
   // Saturday (6)
   6: [
-    { dayOfWeek: 6, subjectName: 'Professional Skills & Mentorship (MCA1006)', facultyName: 'Mr. Nikhil Goud', classroom: 'LH-201 (Div - A)', startTime: '10:00 AM', endTime: '12:00 PM' }
+    { dayOfWeek: 6, subjectName: 'Professional Skills & Mentorship', facultyName: 'Mr. Nikhil Goud', classroom: 'Classroom', startTime: '10:00 AM', endTime: '12:00 PM' }
   ]
 };
 
@@ -396,35 +396,51 @@ export const TimetablePage: React.FC = () => {
         </div>
       )}
 
-      {/* Timetable Slots Grid */}
+      {/* Timetable Vertical Timeline / Cards View (Matching Juno App Format) */}
       {!loading && timetable.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {timetable.map((slot, i) => (
-            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-indigo-300 hover:shadow-md transition-all">
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-indigo-600 mb-2">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <Clock className="w-3.5 h-3.5 text-indigo-500" /> {slot.startTime} - {slot.endTime}
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px]">
-                    Lecture {i + 1}
-                  </span>
-                </div>
-                <h3 className="font-bold text-base text-slate-900 leading-snug">{slot.subjectName}</h3>
-              </div>
+        <div className="space-y-4">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
+            {formatDisplayDate(selectedDate)} • {timetable.length} classes
+          </p>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
-                <div className="flex items-center gap-2">
-                  <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate">{slot.facultyName || 'Staff Member'}</span>
+          <div className="relative pl-2 sm:pl-4 space-y-4 before:absolute before:top-4 before:bottom-4 before:left-[118px] sm:before:left-[126px] before:w-0.5 before:bg-slate-200">
+            {timetable.map((slot, i) => (
+              <div key={i} className="flex items-start gap-3 sm:gap-4 group">
+                {/* Time Indicator */}
+                <div className="w-24 sm:w-26 shrink-0 text-right pt-2.5">
+                  <div className="text-sm font-extrabold text-slate-900 leading-tight">
+                    {slot.startTime}
+                  </div>
+                  <div className="text-xs font-medium text-slate-400 mt-0.5">
+                    {slot.endTime}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>Classroom: <strong className="text-slate-800">{slot.classroom || 'LH-201'}</strong></span>
+
+                {/* Timeline node */}
+                <div className="relative z-10 mt-3.5 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white shrink-0 shadow-sm" />
+
+                {/* Lecture Detail Card */}
+                <div className="flex-1 bg-white rounded-3xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                  <h3 className="font-extrabold text-base sm:text-lg text-slate-900 leading-snug tracking-tight">
+                    {slot.subjectName}
+                  </h3>
+
+                  <div className="mt-3 space-y-1.5 text-xs text-slate-600">
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="font-medium text-slate-700">{slot.facultyName || 'Staff Member'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="font-medium text-slate-500">
+                        {slot.classroom || 'Classroom'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
