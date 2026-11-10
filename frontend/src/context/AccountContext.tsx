@@ -264,9 +264,22 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const vaultKey = getVaultKey(currentUserId);
     try {
       localStorage.setItem(vaultKey, JSON.stringify(updated));
+      localStorage.setItem('campustrack_accounts_cache', JSON.stringify(updated));
     } catch {}
 
-    // 3. Delete on backend
+    // Also update cached authUser if needed
+    try {
+      const u = localStorage.getItem(LOCAL_USER_KEY);
+      if (u) {
+        const parsedUser = JSON.parse(u);
+        if (parsedUser?.primaryAccount?.id === id) {
+          parsedUser.primaryAccount = updated.find(a => a.isPrimary) || updated[0] || null;
+          localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(parsedUser));
+        }
+      }
+    } catch {}
+
+    // 3. Delete on backend and cloud
     try {
       await api.removeAccount(id);
     } catch (e) {

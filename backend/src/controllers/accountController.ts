@@ -90,7 +90,8 @@ export const accountController = {
 
   async deleteAccount(req: AuthenticatedRequest, res: Response) {
     const accountId = req.params.id as string;
-    const deleted = await multiAccountService.removeAccount(accountId);
+    const userId = req.user?.userId;
+    const deleted = await multiAccountService.removeAccount(accountId, userId);
     if (!deleted) {
       res.status(404).json({ success: false, message: 'Account not found' });
       return;

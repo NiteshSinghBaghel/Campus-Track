@@ -542,19 +542,21 @@ class MultiAccountService {
     }
   }
 
-  async removeAccount(id: string): Promise<boolean> {
+  async removeAccount(id: string, fallbackUserId?: string): Promise<boolean> {
     const account = this.accounts.get(id);
+    const userId = account?.userId || fallbackUserId;
     this.adapters.delete(id);
     const deleted = this.accounts.delete(id);
-    if (deleted) {
-      persistAccounts(this.accounts);
-      if (account && account.userId) {
-        // Also explicitly update KVdb for this user's remaining accounts
-        const remaining = Array.from(this.accounts.values()).filter(a => a.userId === account.userId);
-        await kvPut(account.userId, remaining);
-      }
+    
+    // Always persist to local file and sync deletion to KVdb cloud
+    persistAccounts(this.accounts);
+
+    if (userId) {
+      const remaining = Array.from(this.accounts.values()).filter(a => a.userId === userId);
+      await kvPut(userId, remaining);
     }
-    return deleted;
+    
+    return deleted || Boolean(account);
   }
 }
 
