@@ -9,6 +9,14 @@ export interface StudentProfile {
   avatarUrl?: string;
 }
 
+export interface AttendanceSession {
+  date: string;
+  status: 'PRESENT' | 'ABSENT';
+  time?: string;
+  facultyName?: string;
+  remarks?: string;
+}
+
 export interface SubjectAttendance {
   subjectCode: string;
   subjectName: string;
@@ -17,6 +25,7 @@ export interface SubjectAttendance {
   presentClasses: number;
   absentClasses: number;
   percentage: number;
+  sessions?: AttendanceSession[];
 }
 
 export interface AttendanceSummary {
