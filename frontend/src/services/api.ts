@@ -35,22 +35,36 @@ export const authStorage = {
 };
 
 /**
- * Robust fetch wrapper with authorization header injection
+ * Robust fetch wrapper with authorization header injection and client-side timeout
  */
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
+async function request<T>(url: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
   const token = authStorage.getToken();
   const headers = new Headers(options?.headers || {});
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  // 12-second timeout to prevent infinite UI hangs if cloud backend is cold-starting
+  const timeoutMs = options?.timeoutMs ?? 12000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   let res: Response;
   try {
-    res = await fetch(url, { ...options, headers });
+    res = await fetch(url, {
+      ...options,
+      headers,
+      signal: options?.signal || controller.signal
+    });
   } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection.');
+    }
     throw new Error(
       'Backend server is not reachable. Please check your network connection.'
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const contentType = res.headers.get('content-type') || '';

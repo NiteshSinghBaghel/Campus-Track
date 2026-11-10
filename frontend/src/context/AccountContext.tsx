@@ -74,8 +74,26 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const u = localStorage.getItem(LOCAL_USER_KEY);
       const uid = u ? JSON.parse(u)?.userId : null;
+      // 1. Try user-specific vault key
       const cached = localStorage.getItem(getVaultKey(uid));
-      return cached ? normalizeAccounts(JSON.parse(cached)) : [];
+      if (cached) {
+        const parsed = normalizeAccounts(JSON.parse(cached));
+        if (parsed.length > 0) return parsed;
+      }
+      // 2. Fallback to generic cache key
+      const generic = localStorage.getItem('campustrack_accounts_cache');
+      if (generic) {
+        const parsed = normalizeAccounts(JSON.parse(generic));
+        if (parsed.length > 0) return parsed;
+      }
+      // 3. Fallback to primaryAccount stored inside authUser
+      if (u) {
+        const parsedUser = JSON.parse(u);
+        if (parsedUser?.primaryAccount) {
+          return [normalizeAccount(parsedUser.primaryAccount)];
+        }
+      }
+      return [];
     } catch {
       return [];
     }
@@ -86,7 +104,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const u = localStorage.getItem(LOCAL_USER_KEY);
       const uid = u ? JSON.parse(u)?.userId : null;
-      const cachedAccounts = localStorage.getItem(getVaultKey(uid));
+      const cachedAccounts = localStorage.getItem(getVaultKey(uid)) || localStorage.getItem('campustrack_accounts_cache');
       const activeId = localStorage.getItem(LOCAL_ACTIVE_ID_KEY);
       if (cachedAccounts) {
         const parsed = normalizeAccounts(JSON.parse(cachedAccounts));
@@ -97,6 +115,12 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const primary = parsed.find(a => a.isPrimary);
         return primary || parsed[0] || null;
       }
+      if (u) {
+        const parsedUser = JSON.parse(u);
+        if (parsedUser?.primaryAccount) {
+          return normalizeAccount(parsedUser.primaryAccount);
+        }
+      }
       return null;
     } catch {
       return null;
@@ -104,16 +128,22 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   const [loading, setLoading] = useState<boolean>(() => {
-    // Instant workspace ready: if user has a token AND already cached accounts, don't block the UI with full-screen spinner
+    // Instant workspace ready: if user has a token AND already cached accounts/user, don't block the UI with full-screen spinner
     if (!hasToken) return false;
     try {
       const u = localStorage.getItem(LOCAL_USER_KEY);
       const uid = u ? JSON.parse(u)?.userId : null;
-      const cached = localStorage.getItem(getVaultKey(uid));
+      const cached = localStorage.getItem(getVaultKey(uid)) || localStorage.getItem('campustrack_accounts_cache');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return false; // Instant ready! Render dashboard immediately
+        }
+      }
+      if (u) {
+        const parsedUser = JSON.parse(u);
+        if (parsedUser?.primaryAccount) {
+          return false; // Instant ready via cached primary account!
         }
       }
     } catch {}
@@ -180,6 +210,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setAccounts(finalAccounts);
       try {
         localStorage.setItem(vaultKey, JSON.stringify(finalAccounts));
+        localStorage.setItem('campustrack_accounts_cache', JSON.stringify(finalAccounts));
       } catch {}
 
       setActiveAccountState(prev => {
