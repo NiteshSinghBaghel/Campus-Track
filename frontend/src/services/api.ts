@@ -44,8 +44,8 @@ async function request<T>(url: string, options?: RequestInit & { timeoutMs?: num
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // 12-second timeout to prevent infinite UI hangs if cloud backend is cold-starting
-  const timeoutMs = options?.timeoutMs ?? 12000;
+  // 35-second default timeout to handle cold-starting instances smoothly
+  const timeoutMs = options?.timeoutMs ?? 35000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -58,7 +58,7 @@ async function request<T>(url: string, options?: RequestInit & { timeoutMs?: num
     });
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      throw new Error('Request timed out. Please check your connection.');
+      throw new Error('Request timed out. Please check your connection or wait a moment while the server wakes up.');
     }
     throw new Error(
       'Backend server is not reachable. Please check your network connection.'
@@ -106,12 +106,40 @@ export const api = {
     return `${API_BASE}/accounts/${accountId}/image`;
   },
 
+  /**
+   * Pre-warm Render backend on page load so cold boot finishes before user clicks login
+   */
+  wakeUpBackend(): void {
+    try {
+      const rawUrl = API_BASE.startsWith('http') ? API_BASE : window.location.origin;
+      const origin = rawUrl.replace(/\/api$/, '');
+      fetch(`${origin}/health`, { mode: 'cors' }).catch(() => {});
+    } catch {}
+  },
+
   async login(params: { username: string; password: string }): Promise<{ token: string; user: AuthUser }> {
-    const data = await request<{ success: boolean; token: string; user: AuthUser }>(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
-    });
+    // Generous 75s timeout to allow Render container cold boot (~35-45s) + Juno ERP roundtrip (~5s)
+    const doLogin = () =>
+      request<{ success: boolean; token: string; user: AuthUser }>(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+        timeoutMs: 75000
+      });
+
+    let data: { success: boolean; token: string; user: AuthUser };
+    try {
+      data = await doLogin();
+    } catch (err: any) {
+      // Auto-retry once on timeout or network error (container likely finished waking up)
+      const msg = err?.message || '';
+      if (msg.includes('timed out') || msg.includes('not reachable')) {
+        data = await doLogin();
+      } else {
+        throw err;
+      }
+    }
+
     if (data.token) {
       authStorage.setToken(data.token);
     }

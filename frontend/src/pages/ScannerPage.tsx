@@ -672,7 +672,7 @@ export const ScannerPage: React.FC = () => {
                   setBatchResult(null);
                   startScanner();
                 }}
-                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 whitespace-nowrap transition-all"
+                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 whitespace-nowrap transition-all cursor-pointer"
               >
                 Scan Next QR
               </button>

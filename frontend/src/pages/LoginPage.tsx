@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAccounts } from '../context/AccountContext.js';
+import { api } from '../services/api.js';
 import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
@@ -26,7 +27,25 @@ export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
   const [error, setError] = useState('');
+
+  // Pre-warm backend immediately on login page mount to prevent cold-boot timeouts
+  useEffect(() => {
+    api.wakeUpBackend();
+  }, []);
+
+  // Track elapsed loading seconds to give real-time feedback during cold start
+  useEffect(() => {
+    if (!loading) {
+      setLoadingSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingSeconds(s => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // PWA Install state
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(
@@ -318,7 +337,13 @@ export const LoginPage: React.FC = () => {
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Authenticating with Juno ERP...</span>
+                  <span>
+                    {loadingSeconds < 6
+                      ? 'Authenticating with Juno ERP...'
+                      : loadingSeconds < 16
+                      ? 'Connecting to DYPIU Juno server...'
+                      : 'Waking up secure server (please wait)...'}
+                  </span>
                 </>
               ) : (
                 <>
