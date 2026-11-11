@@ -564,16 +564,19 @@ export const ScannerPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-bold shrink-0 ml-2 ${
-                        isConnected
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      CONNECTED
-                    </span>
+                    {/* Connection indicator: simple clean dot */}
+                    <div className="shrink-0 ml-3 flex items-center justify-center p-1.5" title={isConnected ? 'Connected' : 'Offline'}>
+                      <span className="relative flex h-2.5 w-2.5">
+                        {isConnected && (
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        )}
+                        <span
+                          className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                            isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]' : 'bg-slate-300'
+                          }`}
+                        ></span>
+                      </span>
+                    </div>
                   </div>
                 );
               })}
