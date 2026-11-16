@@ -15,6 +15,7 @@ interface AccountContextType {
   refreshAccounts: () => Promise<void>;
   syncAccount: (id: string) => Promise<void>;
   removeAccount: (id: string) => Promise<void>;
+  refreshAllAttendance: (accounts?: StudentAccount[]) => void;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -167,6 +168,9 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(res.user));
     } catch {}
     await refreshAccounts(res.user.userId);
+    // After login: background-refresh all connected accounts' attendance from Juno
+    // Small delay so accounts state is settled before we start fetching
+    setTimeout(() => refreshAllAttendance(), 500);
   };
 
   const logout = () => {
@@ -298,10 +302,49 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  /**
+   * Background-refresh attendance for ALL connected accounts from Juno ERP in parallel.
+   * Saves each result to per-account localStorage cache so Dashboard / AttendancePage
+   * always show the freshest data instantly on next render.
+   * Fire-and-forget — never throws, never blocks UI.
+   */
+  const refreshAllAttendance = (currentAccounts?: StudentAccount[]) => {
+    const list = currentAccounts || accounts;
+    const connected = list.filter(a => a.connectionStatus === 'CONNECTED');
+    if (connected.length === 0) return;
+
+    connected.forEach(acc => {
+      api.getAttendance(acc.id, undefined, true)
+        .then(data => {
+          if (!data) return;
+          try {
+            localStorage.setItem(`att_cache_${acc.id}`, JSON.stringify({ data, ts: Date.now() }));
+            localStorage.setItem(`campustrack_att_${acc.id}`, JSON.stringify(data));
+          } catch {}
+          // Bump attendancePercentage in accounts state so Dashboard card updates live
+          setAccounts(prev => prev.map(a =>
+            a.id === acc.id
+              ? { ...a, attendancePercentage: data.overallPercentage, lastSyncedAt: data.lastSyncedAt }
+              : a
+          ));
+        })
+        .catch(() => {/* silent — stale cache stays */});
+    });
+  };
+
   useEffect(() => {
     const token = authStorage.getToken();
     if (token) {
-      refreshAccounts();
+      // 1. Load accounts list first
+      refreshAccounts().then(() => {
+        // 2. After accounts load, background-refresh all attendance from Juno
+        // Use a ref-read trick: setAccounts updater gives us fresh list
+        setAccounts(current => {
+          // Fire in next tick so state has settled
+          setTimeout(() => refreshAllAttendance(current), 100);
+          return current; // no-op state update
+        });
+      });
     } else {
       setLoading(false);
     }
@@ -323,7 +366,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveAccount,
         refreshAccounts,
         syncAccount,
-        removeAccount
+        removeAccount,
+        refreshAllAttendance
       }}
     >
       {children}
