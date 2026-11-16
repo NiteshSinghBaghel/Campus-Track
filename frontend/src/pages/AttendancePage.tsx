@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAccounts } from '../context/AccountContext.js';
 import { api } from '../services/api.js';
 import { AttendanceSummary } from '../types/index.js';
@@ -6,68 +6,16 @@ import { ChevronDown, RefreshCw, Star, AlertTriangle, Calendar, CheckCircle2, XC
 import { AttendanceSession, SubjectAttendance } from '../types/index.js';
 
 /**
- * Generate accurate realistic lecture dates for the semester from start of term
- * (matching the student's exact presentClasses and absentClasses counts)
+ * Render date-wise sessions from real Juno data (subject.sessions) if available.
+ * If the backend didn't return session-level data, show a summary-only view
+ * (no fake dates — tell user to click Refresh to try fetching session detail).
  */
 function getSubjectSessions(subject: SubjectAttendance): AttendanceSession[] {
   if (subject.sessions && subject.sessions.length > 0) {
-    return subject.sessions;
+    // Sort descending: Latest dates on top
+    return [...subject.sessions].sort((a, b) => b.date.localeCompare(a.date));
   }
-
-  const total = subject.totalClasses || (subject.presentClasses + subject.absentClasses) || 10;
-  const present = subject.presentClasses;
-  const absent = subject.absentClasses;
-
-  // Generate sequence of dates skipping Sundays and Saturdays
-  const sessions: AttendanceSession[] = [];
-  const baseDate = new Date();
-  baseDate.setDate(baseDate.getDate() - 2); // recent days
-
-  let daysBack = 1;
-  const daysList: string[] = [];
-
-  while (daysList.length < total) {
-    const d = new Date(baseDate);
-    d.setDate(baseDate.getDate() - daysBack);
-    const dayOfWeek = d.getDay();
-    // Monday-Friday (1-5) and some Saturdays
-    if (dayOfWeek >= 1 && dayOfWeek <= 6) {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      daysList.push(`${yyyy}-${mm}-${dd}`);
-    }
-    daysBack++;
-  }
-
-  // Deterministically mark present and absent according to ratio
-  let remainingPresent = present;
-  let remainingAbsent = absent;
-
-  for (let i = 0; i < daysList.length; i++) {
-    const dateStr = daysList[i];
-    let isPres = true;
-
-    if (remainingAbsent > 0 && (i % 3 === 0 || remainingPresent <= 0)) {
-      isPres = false;
-      remainingAbsent--;
-    } else if (remainingPresent > 0) {
-      isPres = true;
-      remainingPresent--;
-    } else {
-      isPres = false;
-    }
-
-    sessions.push({
-      date: dateStr,
-      status: isPres ? 'PRESENT' : 'ABSENT',
-      time: subject.subjectName.toLowerCase().includes('lab') ? '01:30 PM - 03:30 PM' : '10:30 AM - 11:30 AM',
-      facultyName: subject.facultyName
-    });
-  }
-
-  // Sort descending: Latest dates on top
-  return sessions.sort((a, b) => b.date.localeCompare(a.date));
+  return [];
 }
 
 function formatSessionDate(dateStr: string) {
@@ -193,9 +141,11 @@ export const AttendancePage: React.FC = () => {
   const [showSemDropdown, setShowSemDropdown] = useState(false);
   const [selectedSem, setSelectedSem] = useState('SEM -1');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastLiveSyncAt, setLastLiveSyncAt] = useState<string | null>(null);
   const [expandedSubjectCode, setExpandedSubjectCode] = useState<string | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Instant render (0ms): Load cached or default attendance immediately so page opens instantly without spinner
+  // Instant render (0ms): Load cached attendance immediately so page opens instantly
   const [attendance, setAttendance] = useState<AttendanceSummary>(() => {
     if (currentAccount?.id) {
       try {
@@ -212,16 +162,38 @@ export const AttendancePage: React.FC = () => {
     return DEFAULT_ATTENDANCE;
   });
 
-  // When selectedSem changes, load instant cache and refresh in background
+  // Core fetch function — reused by both initial load and auto-poll
+  const fetchAttendance = useCallback(async (force = false) => {
+    if (!currentAccount?.id) return;
+
+    const studentSem = currentAccount.semester?.toUpperCase() || 'SEM -1';
+    const isCurrentSem = selectedSem === 'SEM -1' || studentSem.includes(selectedSem.replace(/[^0-9]/g, ''));
+    if (!isCurrentSem) return;
+
+    const termNum = selectedSem.replace(/[^0-9]/g, '') || '1';
+    const cacheKey = `campustrack_att_${currentAccount.id}_${selectedSem}`;
+
+    try {
+      const data = await api.getAttendance(currentAccount.id, termNum, force);
+      if (data && data.subjects && data.subjects.length > 0) {
+        setAttendance(data);
+        setLastLiveSyncAt(new Date().toISOString());
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+          localStorage.setItem(`campustrack_att_${currentAccount.id}`, JSON.stringify(data));
+        } catch {}
+      }
+    } catch {}
+  }, [currentAccount?.id, selectedSem]);
+
+  // When selectedSem changes: load cache instantly, then fetch live
   useEffect(() => {
     if (!currentAccount?.id) return;
 
-    // Check if the student's actual current semester matches the selected semester
     const studentSem = currentAccount.semester?.toUpperCase() || 'SEM -1';
     const isCurrentSem = selectedSem === 'SEM -1' || studentSem.includes(selectedSem.replace(/[^0-9]/g, ''));
 
     if (!isCurrentSem) {
-      // Inactive semester: Instant update without delay
       setAttendance({
         overallPercentage: 0,
         totalClasses: 0,
@@ -233,6 +205,7 @@ export const AttendancePage: React.FC = () => {
       return;
     }
 
+    // Load localStorage cache instantly
     const cacheKey = `campustrack_att_${currentAccount.id}_${selectedSem}`;
     try {
       const cached = localStorage.getItem(cacheKey) || localStorage.getItem(`campustrack_att_${currentAccount.id}`);
@@ -244,23 +217,28 @@ export const AttendancePage: React.FC = () => {
       }
     } catch {}
 
-    // Background revalidation (non-blocking)
-    const termNum = selectedSem.replace(/[^0-9]/g, '') || '1';
+    // Initial fetch (non-blocking)
     setIsRefreshing(true);
+    fetchAttendance(false).finally(() => setIsRefreshing(false));
 
-    api.getAttendance(currentAccount.id, termNum)
-      .then(data => {
-        if (data && data.subjects && data.subjects.length > 0) {
-          setAttendance(data);
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify(data));
-            localStorage.setItem(`campustrack_att_${currentAccount.id}`, JSON.stringify(data));
-          } catch {}
-        }
-      })
-      .catch(() => {})
-      .finally(() => setIsRefreshing(false));
-  }, [currentAccount?.id, selectedSem]);
+    // Auto-poll every 90 seconds for real-time updates (Juno reflects changes in ~1 min)
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    pollIntervalRef.current = setInterval(() => {
+      fetchAttendance(false);
+    }, 90 * 1000);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [currentAccount?.id, selectedSem, fetchAttendance]);
+
+  // Manual force-refresh handler
+  const handleManualRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    await fetchAttendance(true);
+    setIsRefreshing(false);
+  };
 
   const overallPct = attendance?.overallPercentage || currentAccount?.attendancePercentage || 65;
   const presentCount = attendance?.presentClasses || Math.round((attendance?.totalClasses || 161) * (overallPct / 100));
@@ -272,7 +250,7 @@ export const AttendancePage: React.FC = () => {
 
   return (
     <div className="max-w-xl mx-auto space-y-4 pb-12 font-sans select-none">
-      {/* Top SEM Dropdown matching Screenshot 1 */}
+      {/* Top SEM Dropdown */}
       <div className="relative">
         <button
           onClick={() => setShowSemDropdown(!showSemDropdown)}
@@ -302,7 +280,7 @@ export const AttendancePage: React.FC = () => {
         )}
       </div>
 
-      {/* Student Subheader Info matching Screenshot 1 */}
+      {/* Student Subheader Info + Refresh + Live indicator */}
       <div className="flex items-center gap-2 px-1 text-xs text-slate-600">
         <span className="font-bold text-slate-900 truncate max-w-[130px]">
           {currentAccount?.studentName || 'Student'}
@@ -310,9 +288,23 @@ export const AttendancePage: React.FC = () => {
         <span className="px-2.5 py-0.5 rounded-full bg-slate-200/80 text-slate-700 font-extrabold text-[11px] tracking-wide shrink-0">
           BATCH DIV - {currentAccount?.semester?.toUpperCase().includes('B') ? 'B' : 'A'}
         </span>
-        <span className="text-slate-500 font-medium ml-auto sm:ml-0 shrink-0">
-          Student ID: {currentAccount?.prn?.slice(-5) || '12091'}
-        </span>
+
+        {/* Live sync status */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {lastLiveSyncAt && (
+            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+              Synced {new Date(lastLiveSyncAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            title="Force sync from Juno ERP"
+            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-all cursor-pointer disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {hasNoCourses ? (
@@ -488,51 +480,65 @@ export const AttendancePage: React.FC = () => {
                         </div>
 
                         {/* Sessions List */}
-                        <div className="mt-2 space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                          {sessions.map((session, sIdx) => {
-                            const isPres = session.status === 'PRESENT';
-                            return (
-                              <div
-                                key={sIdx}
-                                className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${
-                                  isPres
-                                    ? 'bg-white border-emerald-100/80 shadow-2xs'
-                                    : 'bg-rose-50/40 border-rose-200/70 shadow-2xs'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  {isPres ? (
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                                  ) : (
-                                    <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                                  )}
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-slate-900 leading-tight">
-                                      {formatSessionDate(session.date)}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                                      <Clock className="w-2.5 h-2.5" />
-                                      <span>{session.time || '10:30 AM'}</span>
-                                      {session.facultyName && (
-                                        <span className="truncate">• {session.facultyName}</span>
-                                      )}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase shrink-0 ${
+                        {sessions.length === 0 ? (
+                          <div className="mt-3 py-5 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                            <Calendar className="w-5 h-5 text-slate-300" />
+                            <span>Date-wise detail not available from Juno ERP.</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleManualRefresh(); }}
+                              className="mt-1 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                              Force Sync from Juno
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-2 space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                            {sessions.map((session, sIdx) => {
+                              const isPres = session.status === 'PRESENT';
+                              return (
+                                <div
+                                  key={sIdx}
+                                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${
                                     isPres
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-rose-100 text-rose-700'
+                                      ? 'bg-white border-emerald-100/80 shadow-2xs'
+                                      : 'bg-rose-50/40 border-rose-200/70 shadow-2xs'
                                   }`}
                                 >
-                                  {session.status}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    {isPres ? (
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    ) : (
+                                      <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-slate-900 leading-tight">
+                                        {formatSessionDate(session.date)}
+                                      </p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        <span>{session.time || '10:30 AM'}</span>
+                                        {session.facultyName && (
+                                          <span className="truncate">• {session.facultyName}</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase shrink-0 ${
+                                      isPres
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-rose-100 text-rose-700'
+                                    }`}
+                                  >
+                                    {session.status}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

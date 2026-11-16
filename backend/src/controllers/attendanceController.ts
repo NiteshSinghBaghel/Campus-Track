@@ -15,8 +15,10 @@ export const attendanceController = {
     try {
       const accountId = req.params.accountId as string;
       const termId = req.query.termId as string | undefined;
-      const summary = await multiAccountService.syncAccountAttendance(accountId, termId);
-      res.json({ success: true, summary });
+      // `force=true` bypasses cache for immediate post-scan refresh
+      const forceRefresh = req.query.force === 'true';
+      const summary = await multiAccountService.syncAccountAttendance(accountId, termId, forceRefresh);
+      res.json({ success: true, summary, forceRefresh });
     } catch (err) {
       const message = (err as Error).message;
       const isSessionIssue =
@@ -40,6 +42,19 @@ export const attendanceController = {
         targetAccountIds: parsed.targetAccountIds,
         challengeResponses: parsed.challengeResponses
       });
+
+      // After marking attendance, bust the cache for all scanned accounts so the
+      // next attendance fetch reflects the new record immediately
+      const targetIds = parsed.targetAccountIds || [];
+      for (const id of targetIds) {
+        try { multiAccountService.clearAttendanceCache(id); } catch {}
+      }
+      // Also clear primary account's cache regardless
+      if (batchResult.results && batchResult.results.length > 0) {
+        for (const r of batchResult.results) {
+          try { multiAccountService.clearAttendanceCache(r.accountId); } catch {}
+        }
+      }
 
       res.json({ success: true, batch: batchResult });
     } catch (err) {

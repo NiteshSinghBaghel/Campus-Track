@@ -202,8 +202,9 @@ export const api = {
     await request<void>(`${API_BASE}/accounts/${id}`, { method: 'DELETE' });
   },
 
-  async getAttendance(accountId: string, termId?: string): Promise<AttendanceSummary> {
-    const query = termId ? `?termId=${encodeURIComponent(termId)}` : '';
+  async getAttendance(accountId: string, termId?: string, forceRefresh = false): Promise<AttendanceSummary> {
+    let query = termId ? `?termId=${encodeURIComponent(termId)}` : '';
+    if (forceRefresh) query += (query ? '&' : '?') + 'force=true';
     const data = await request<{ success: boolean; summary: AttendanceSummary }>(`${API_BASE}/attendance/${accountId}${query}`);
     return data.summary;
   },

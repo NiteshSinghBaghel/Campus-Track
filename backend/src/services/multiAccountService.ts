@@ -445,14 +445,27 @@ class MultiAccountService {
   private attendanceCache = new Map<string, { summary: AttendanceSummary; expiresAt: number }>();
   private timetableCache = new Map<string, { slots: TimetableSlot[]; expiresAt: number }>();
 
-  async syncAccountAttendance(accountId: string, termId?: string): Promise<AttendanceSummary> {
+  /**
+   * Clear cached attendance for a specific account so next fetch goes live.
+   * Called automatically after QR scan / attendance marking.
+   */
+  clearAttendanceCache(accountId: string): void {
+    for (const key of this.attendanceCache.keys()) {
+      if (key.startsWith(accountId)) {
+        this.attendanceCache.delete(key);
+      }
+    }
+  }
+
+  async syncAccountAttendance(accountId: string, termId?: string, forceRefresh = false): Promise<AttendanceSummary> {
     const account = this.accounts.get(accountId);
     if (!account) throw new Error('Account not found');
 
     const cacheKey = `${accountId}:${termId || 'default'}`;
     const cached = this.attendanceCache.get(cacheKey);
-    // Return cached attendance if fresh (< 5 minutes)
-    if (cached && cached.expiresAt > Date.now()) {
+
+    // Return cached attendance if fresh (< 90 seconds) — unless force refresh requested
+    if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
       return cached.summary;
     }
 
@@ -465,21 +478,18 @@ class MultiAccountService {
       this.accounts.set(accountId, account);
       persistAccounts(this.accounts);
 
-      // Cache for 5 minutes
+      // Cache for 90 seconds (fast enough to pick up new attendance within 2 polls)
       this.attendanceCache.set(cacheKey, {
         summary,
-        expiresAt: Date.now() + 5 * 60 * 1000
+        expiresAt: Date.now() + 90 * 1000
       });
 
       return summary;
     } catch (err) {
       // Return stale cache if exists
       if (cached) return cached.summary;
-      // Final fallback
-      const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
-      const fallbackSummary = await fallbackAdapter.getAttendance(termId);
-      fallbackSummary.overallPercentage = account.attendancePercentage || fallbackSummary.overallPercentage;
-      return fallbackSummary;
+      // No fallback hardcoded data — throw so the frontend knows to use its cached copy
+      throw err;
     }
   }
 
