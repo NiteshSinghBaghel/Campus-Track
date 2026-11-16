@@ -51,6 +51,11 @@ export const ScannerPage: React.FC = () => {
     accountsRef.current = accounts;
   }, [accounts]);
 
+  // Pre-warm Juno sessions on mount so cookies are fresh before QR scan begins
+  useEffect(() => {
+    api.preWarmSessions().catch(() => {});
+  }, []);
+
   // Initialize selected accounts: select connected or all available accounts by default
   useEffect(() => {
     if (accounts.length === 0) return;

@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
+router.post('/pre-warm', attendanceController.preWarmSessions);
 router.post('/one-scan', attendanceController.processOneScan);
 router.get('/:accountId', attendanceController.getAccountAttendance);
 router.get('/:accountId/profile', attendanceController.getProfile);

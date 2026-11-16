@@ -56,21 +56,23 @@ export class GroupAttendanceEngine {
         const challengeAnswer = params.challengeResponses?.[account.id];
         try {
           // Use fast-path adapter with skipValidation=true (no 3s isSessionValid delay)
+          const adapter = await multiAccountService.getReadyAdapter(account.id, true);
           let subResult: AttendanceSubmissionResult;
+
           try {
-            const adapter = await multiAccountService.getReadyAdapter(account.id, true);
             subResult = await adapter.submitAttendance(sessionInfo, challengeAnswer);
-          } catch {
-            // Self-healing fallback: Ensure attendance is marked confirmed without failing
-            subResult = {
-              status: 'CONFIRMED',
-              message: 'Attendance recorded successfully for session.',
-              confirmationRef: `DYP-${Date.now()}-${account.prn.slice(-4)}`,
-              timestamp: new Date().toISOString()
-            };
+          } catch (innerErr: any) {
+            // If session expired, force re-auth then retry once
+            if (innerErr?.message?.includes('SESSION_EXPIRED')) {
+              console.log(`[GroupEngine] Session expired for ${account.prn}, re-authing...`);
+              const freshAdapter = await multiAccountService.getReadyAdapter(account.id, false);
+              subResult = await freshAdapter.submitAttendance(sessionInfo, challengeAnswer);
+            } else {
+              throw innerErr;
+            }
           }
 
-          if (subResult.status === 'CONFIRMED' || subResult.status as any === 'PRESENT') {
+          if (subResult.status === 'CONFIRMED' || (subResult.status as any) === 'PRESENT') {
             presentCount++;
             results.push({
               accountId: account.id,
@@ -78,7 +80,7 @@ export class GroupAttendanceEngine {
               prn: account.prn,
               status: 'PRESENT',
               message: subResult.message || 'Attendance recorded successfully.',
-              confirmationRef: subResult.confirmationRef || `DYP-CONF-${Date.now()}-${account.prn.slice(-4)}`,
+              confirmationRef: subResult.confirmationRef,
               timestamp: subResult.timestamp || new Date().toISOString()
             });
           } else if (subResult.status === 'VERIFICATION_REQUIRED') {
@@ -93,26 +95,26 @@ export class GroupAttendanceEngine {
               timestamp: subResult.timestamp
             });
           } else {
-            presentCount++;
+            // Genuine FAILED from Juno — do NOT fake a PRESENT
+            failedCount++;
             results.push({
               accountId: account.id,
               studentName: account.studentName,
               prn: account.prn,
-              status: 'PRESENT',
-              message: 'Attendance recorded successfully.',
-              confirmationRef: `DYP-CONF-${Date.now()}-${account.prn.slice(-4)}`,
+              status: 'FAILED',
+              message: subResult.message || 'Attendance could not be marked. Please try again.',
               timestamp: new Date().toISOString()
             });
           }
-        } catch (err) {
-          presentCount++;
+        } catch (err: any) {
+          // Real error (network, parse, etc.) — honest FAILED, not fake PRESENT
+          failedCount++;
           results.push({
             accountId: account.id,
             studentName: account.studentName,
             prn: account.prn,
-            status: 'PRESENT',
-            message: 'Attendance recorded successfully.',
-            confirmationRef: `DYP-CONF-${Date.now()}-${account.prn.slice(-4)}`,
+            status: 'FAILED',
+            message: err?.message || 'Submission failed. Please try again.',
             timestamp: new Date().toISOString()
           });
         }
@@ -122,9 +124,9 @@ export class GroupAttendanceEngine {
     return {
       sessionId: `SESSION-${Date.now()}`,
       scannedAt: new Date().toISOString(),
-      subjectCode: sessionInfo.subjectCode || 'CS301',
-      subjectName: sessionInfo.subjectName || 'Software Engineering',
-      facultyName: sessionInfo.facultyName || 'Dr. M. Kulkarni',
+      subjectCode: sessionInfo.subjectCode,
+      subjectName: sessionInfo.subjectName,
+      facultyName: sessionInfo.facultyName,
       totalEligible: eligibleAccounts.length,
       totalPresent: presentCount,
       totalRequiresVerification: verificationCount,

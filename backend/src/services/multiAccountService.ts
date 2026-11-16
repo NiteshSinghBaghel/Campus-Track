@@ -493,6 +493,30 @@ class MultiAccountService {
     }
   }
 
+  /**
+   * Pre-warm all sessions for a user in background (called on login and on scanner page open).
+   * This ensures sessions are live before QR scan starts, so there's no re-auth delay during 10s QR window.
+   */
+  async preWarmAllSessions(userId: string): Promise<void> {
+    const accounts = this.getAccounts(userId);
+    await Promise.all(
+      accounts
+        .filter(acc => acc.connectionStatus === 'CONNECTED')
+        .map(async acc => {
+          try {
+            const adapter = await this.getReadyAdapter(acc.id, false); // validate + re-auth if needed
+            // Save refreshed session
+            acc.encryptedSession = encrypt(adapter.exportSessionCookies());
+            acc.connectionStatus = 'CONNECTED';
+            this.accounts.set(acc.id, acc);
+          } catch (e) {
+            console.warn(`[MultiAccount] Pre-warm failed for ${acc.id}:`, e);
+          }
+        })
+    );
+    if (accounts.length > 0) persistAccounts(this.accounts);
+  }
+
   async getAccountTimetable(accountId: string, date?: string): Promise<TimetableSlot[]> {
     const account = this.accounts.get(accountId);
     const program = account?.program || 'MCA';

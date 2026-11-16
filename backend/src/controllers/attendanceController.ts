@@ -11,6 +11,22 @@ const oneScanSchema = z.object({
 });
 
 export const attendanceController = {
+  /**
+   * Pre-warm all Juno sessions for a user so they are fresh before QR scanning begins.
+   * Called from ScannerPage on mount — fires in background, non-blocking for UI.
+   */
+  async preWarmSessions(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.userId || 'user-default';
+      await multiAccountService.preWarmAllSessions(userId);
+      res.json({ success: true, message: 'Sessions pre-warmed successfully.' });
+    } catch (err) {
+      // Non-fatal — just log and return ok so frontend doesn't block
+      console.warn('[preWarm] Failed to pre-warm sessions:', (err as Error).message);
+      res.json({ success: false, message: (err as Error).message });
+    }
+  },
+
   async getAccountAttendance(req: AuthenticatedRequest, res: Response) {
     try {
       const accountId = req.params.accountId as string;

@@ -223,8 +223,25 @@ export const api = {
     const data = await request<{ success: boolean; batch: GroupAttendanceBatchResponse }>(`${API_BASE}/attendance/one-scan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
+      body: JSON.stringify(params),
+      // 12s timeout: QR window is 10s but backend parallel processing needs a bit extra
+      timeoutMs: 12000
     });
     return data.batch;
+  },
+
+  /**
+   * Pre-warm all Juno sessions so cookies are fresh before QR scanning begins.
+   * Called on ScannerPage mount — non-blocking, errors are silently ignored.
+   */
+  async preWarmSessions(): Promise<void> {
+    try {
+      await request<{ success: boolean }>(`${API_BASE}/attendance/pre-warm`, {
+        method: 'POST',
+        timeoutMs: 25000
+      });
+    } catch {
+      // Non-fatal — scanner still works, just may need re-auth on first scan
+    }
   }
 };

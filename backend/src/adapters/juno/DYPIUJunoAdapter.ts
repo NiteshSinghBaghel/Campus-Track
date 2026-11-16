@@ -53,7 +53,7 @@ export class DYPIUJunoAdapter implements ERPAdapter {
   async authenticate(username: string, password: string): Promise<boolean> {
     try {
       // Step 1: Prime session cookies from /login.htm
-      const loginPageRes = await this.api.get('/login.htm');
+      const loginPageRes = await this.api.get('/login.htm', { timeout: 5000 });
       if (loginPageRes.status !== 200) {
         return false;
       }
@@ -71,7 +71,8 @@ export class DYPIUJunoAdapter implements ERPAdapter {
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         },
         maxRedirects: 0,
-        validateStatus: (status: number) => status >= 200 && status < 400
+        validateStatus: (status: number) => status >= 200 && status < 400,
+        timeout: 8000
       });
 
       // Strict redirect check (resolves false-positive bug)
@@ -83,17 +84,15 @@ export class DYPIUJunoAdapter implements ERPAdapter {
       // Step 3: Follow redirect to /home.htm
       const redirectPath = location.startsWith('http') ? location : `${this.baseUrl}${location.startsWith('/') ? '' : '/'}${location || 'home.htm'}`;
       await this.api.get(redirectPath, {
-        headers: { 'Referer': `${this.baseUrl}/login.htm` }
+        headers: { 'Referer': `${this.baseUrl}/login.htm` },
+        timeout: 5000
       });
 
-      // Step 4: Prime dashboard context
-      try {
-        await this.api.get('/stu_myDashBoard.htm', {
-          headers: { 'Referer': `${this.baseUrl}/home.htm` }
-        });
-      } catch (err) {
-        // Non-fatal priming error
-      }
+      // Step 4: Prime dashboard context (non-blocking — fire-and-forget for speed)
+      this.api.get('/stu_myDashBoard.htm', {
+        headers: { 'Referer': `${this.baseUrl}/home.htm` },
+        timeout: 3000
+      }).catch(() => {});
 
       return await this.isSessionValid();
     } catch (error) {
@@ -966,77 +965,108 @@ export class DYPIUJunoAdapter implements ERPAdapter {
   }
 
   async submitAttendance(sessionInfo: QRSessionInfo, challengeResponse?: string): Promise<AttendanceSubmissionResult> {
+    // If challenge response is required
+    if (!challengeResponse && sessionInfo.rawPayload.includes('challenge=true')) {
+      return {
+        status: 'VERIFICATION_REQUIRED',
+        message: 'Human verification required for this session.',
+        challengeQuestion: 'Please solve: 3 + 4',
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    // Attempt 1: POST /stu_submitAttendanceSession.json
     try {
-      // SKIP isSessionValid() check — it costs an extra ~1-2s network round-trip.
-      // Directly attempt submission; if session is truly dead, re-auth happens in getReadyAdapter.
-
-      // If challenge response is required
-      if (!challengeResponse && sessionInfo.rawPayload.includes('challenge=true')) {
-        return {
-          status: 'VERIFICATION_REQUIRED',
-          message: 'Human verification required for this session.',
-          challengeQuestion: 'Please solve: 3 + 4',
-          timestamp: new Date().toISOString()
-        };
-      }
-
-      // 1. Submit attendance record to ERP session endpoint (fast path)
       const postData = qs.stringify({
         sessionToken: sessionInfo.sessionToken,
         subjectCode: sessionInfo.subjectCode || '',
         challenge: challengeResponse || ''
       });
 
-      let response: any = null;
-      try {
-        response = await this.api.post('/stu_submitAttendanceSession.json', postData, {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Referer': `${this.baseUrl}/stu_myDashBoard.htm`
-          },
+      const response = await this.api.post('/stu_submitAttendanceSession.json', postData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Referer': `${this.baseUrl}/stu_myDashBoard.htm`
+        },
+        timeout: 5000,
+        validateStatus: () => true
+      });
+
+      if (this.debug) console.log('[DYPIUJunoAdapter] POST submit response:', response.status, JSON.stringify(response.data));
+
+      // Detect session expiry — Juno redirects to /login.htm or returns 401/403
+      const isSessionExpired =
+        response.status === 401 ||
+        response.status === 403 ||
+        (response.status === 302 && (response.headers?.location || '').includes('login')) ||
+        (typeof response.data === 'string' && response.data.includes('j_spring_security_check'));
+
+      if (isSessionExpired) {
+        // Surface as a known error so groupAttendanceEngine can re-auth and retry
+        throw new Error('SESSION_EXPIRED');
+      }
+
+      if (response.status === 200 || response.status === 201) {
+        const data = response.data;
+        // Juno returns error flag in body sometimes
+        if (data && (data.error === true || data.status === 'error' || data.success === false)) {
+          if (this.debug) console.warn('[DYPIUJunoAdapter] Juno returned body error:', data);
+          // Fall through to Attempt 2
+        } else {
+          return {
+            status: 'CONFIRMED',
+            message: data?.message || 'Attendance marked successfully on DYPIU Juno ERP.',
+            confirmationRef: `DYP-${Date.now()}`,
+            timestamp: new Date().toISOString()
+          };
+        }
+      }
+    } catch (err: any) {
+      if (err?.message === 'SESSION_EXPIRED') throw err;
+      if (this.debug) console.warn('[DYPIUJunoAdapter] POST submit error:', err?.message);
+    }
+
+    // Attempt 2: GET /stu_markStudentAttendanceByQR.json (fallback endpoint)
+    try {
+      const markRes = await this.api.get(
+        `/stu_markStudentAttendanceByQR.json?token=${encodeURIComponent(sessionInfo.sessionToken)}&sub=${encodeURIComponent(sessionInfo.subjectCode || '')}`,
+        {
+          headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` },
           timeout: 4000,
           validateStatus: () => true
-        });
-      } catch (e) {
-        if (this.debug) console.warn('[DYPIUJunoAdapter] Post /stu_submitAttendanceSession.json error:', e);
+        }
+      );
+
+      if (this.debug) console.log('[DYPIUJunoAdapter] GET markByQR response:', markRes.status, JSON.stringify(markRes.data));
+
+      const isSessionExpired2 =
+        markRes.status === 401 ||
+        markRes.status === 403 ||
+        (typeof markRes.data === 'string' && markRes.data.includes('j_spring_security_check'));
+
+      if (isSessionExpired2) {
+        throw new Error('SESSION_EXPIRED');
       }
 
-      const isOk = response && (response.status === 200 || response.status === 201) && (!response.data || !response.data.error || response.data.status === 'success');
-      
-      // Fallback: Try ERP query params QR marking
-      if (!isOk) {
-        try {
-          const markRes = await this.api.get(`/stu_markStudentAttendanceByQR.json?token=${encodeURIComponent(sessionInfo.sessionToken)}&sub=${encodeURIComponent(sessionInfo.subjectCode || '')}`, {
-            headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` },
-            timeout: 3000,
-            validateStatus: () => true
-          });
-          if (markRes && markRes.status === 200) {
-            return {
-              status: 'CONFIRMED',
-              message: markRes.data?.message || 'Attendance recorded successfully by DYPIU Juno ERP.',
-              confirmationRef: `DYP-${Date.now()}`,
-              timestamp: new Date().toISOString()
-            };
-          }
-        } catch {}
+      if (markRes.status === 200) {
+        return {
+          status: 'CONFIRMED',
+          message: markRes.data?.message || 'Attendance recorded successfully by DYPIU Juno ERP.',
+          confirmationRef: `DYP-${Date.now()}`,
+          timestamp: new Date().toISOString()
+        };
       }
-
-      // Even if mock/external faculty QR or standard faculty QR is scanned, mark CONFIRMED
-      return {
-        status: 'CONFIRMED',
-        message: response?.data?.message || 'Attendance recorded successfully and verified for session.',
-        confirmationRef: `DYP-${Date.now()}`,
-        timestamp: new Date().toISOString()
-      };
-    } catch (err) {
-      return {
-        status: 'CONFIRMED',
-        message: 'Attendance recorded successfully.',
-        confirmationRef: `DYP-${Date.now()}`,
-        timestamp: new Date().toISOString()
-      };
+    } catch (err: any) {
+      if (err?.message === 'SESSION_EXPIRED') throw err;
+      if (this.debug) console.warn('[DYPIUJunoAdapter] GET markByQR error:', err?.message);
     }
+
+    // Both attempts failed — return FAILED so the user knows attendance was NOT recorded
+    return {
+      status: 'FAILED',
+      message: 'Could not reach DYPIU Juno ERP to record attendance. Please retry or mark manually.',
+      timestamp: new Date().toISOString()
+    };
   }
 
   exportSessionCookies(): string {
