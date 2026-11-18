@@ -1012,25 +1012,41 @@ export class DYPIUJunoAdapter implements ERPAdapter {
 
   async decodeQRSession(qrPayload: string): Promise<QRSessionInfo> {
     try {
-      // Handles both JSON payloads and encoded session strings
-      let parsed: any;
-      if (qrPayload.trim().startsWith('{')) {
-        parsed = JSON.parse(qrPayload);
-      } else {
-        const urlParams = new URLSearchParams(qrPayload.includes('?') ? qrPayload.split('?')[1] : qrPayload);
-        parsed = {
-          sessionToken: urlParams.get('token') || urlParams.get('sessionId') || qrPayload,
-          subjectCode: urlParams.get('sub') || urlParams.get('subjectCode') || undefined,
-          facultyName: urlParams.get('fac') || undefined
+      const raw = qrPayload.trim();
+
+      // JSON payload
+      if (raw.startsWith('{')) {
+        const parsed = JSON.parse(raw);
+        return {
+          sessionToken: parsed.sessionToken || parsed.sessionId || parsed.token || raw,
+          subjectCode: parsed.subjectCode || parsed.subCode,
+          subjectName: parsed.subjectName,
+          facultyName: parsed.facultyName,
+          rawPayload: raw
         };
       }
 
+      // Full URL (most common from Juno QR): https://erp.dypiu.ac.in/stu_markStudentAttendanceByQR.htm?sessionId=XXX
+      let queryString = raw;
+      if (raw.includes('?')) {
+        queryString = raw.split('?')[1];
+      }
+      const urlParams = new URLSearchParams(queryString);
+
+      // Juno uses sessionId, token, or id as the key
+      const sessionToken =
+        urlParams.get('sessionId') ||
+        urlParams.get('token') ||
+        urlParams.get('id') ||
+        urlParams.get('sessionToken') ||
+        raw;
+
       return {
-        sessionToken: parsed.sessionToken || parsed.sessionId || parsed.token || qrPayload,
-        subjectCode: parsed.subjectCode || parsed.subCode,
-        subjectName: parsed.subjectName,
-        facultyName: parsed.facultyName,
-        rawPayload: qrPayload
+        sessionToken,
+        subjectCode: urlParams.get('sub') || urlParams.get('subjectCode') || urlParams.get('subCode') || undefined,
+        subjectName: urlParams.get('subjectName') || undefined,
+        facultyName: urlParams.get('fac') || urlParams.get('facultyName') || undefined,
+        rawPayload: raw
       };
     } catch {
       return {
@@ -1041,55 +1057,131 @@ export class DYPIUJunoAdapter implements ERPAdapter {
   }
 
   async submitAttendance(sessionInfo: QRSessionInfo, challengeResponse?: string): Promise<AttendanceSubmissionResult> {
-    // If challenge response is required
-    if (!challengeResponse && sessionInfo.rawPayload.includes('challenge=true')) {
-      return {
-        status: 'VERIFICATION_REQUIRED',
-        message: 'Human verification required for this session.',
-        challengeQuestion: 'Please solve: 3 + 4',
-        timestamp: new Date().toISOString()
-      };
-    }
+    const rawPayload = sessionInfo.rawPayload || sessionInfo.sessionToken;
+    const sessionId = sessionInfo.sessionToken;
 
-    // Juno accepts the full raw QR payload (URL or token string) directly
-    const rawToken = sessionInfo.rawPayload || sessionInfo.sessionToken;
-
-    // Helper: check if Juno body indicates a "already marked / invalid / expired" error
-    const isJunoBodyError = (data: any): boolean => {
-      if (!data) return false;
-      if (data.error === true || data.success === false) return true;
-      const msg = (data.message || data.msg || data.status || data.error || '').toString().toLowerCase();
-      return msg.includes('invalid') ||
-             msg.includes('expired') ||
-             msg.includes('already') ||
-             msg.includes('not valid') ||
-             msg.includes('qr code') ||
-             msg.includes('session') && msg.includes('end');
+    // Detect session expiry from response
+    const checkSessionExpired = (status: number, body: any): boolean => {
+      if (status === 401 || status === 403) return true;
+      if (typeof body === 'string' && body.includes('j_spring_security_check')) return true;
+      if (status === 302) return true;
+      return false;
     };
 
-    // Helper: check if Juno body indicates success
-    const isJunoBodySuccess = (data: any): boolean => {
+    // Check if Juno HTML response indicates success (attendance marked)
+    const isHtmlSuccess = (body: string): boolean => {
+      const lower = body.toLowerCase();
+      return lower.includes('success') ||
+             lower.includes('present') ||
+             lower.includes('marked') ||
+             lower.includes('attendance') && (lower.includes('recorded') || lower.includes('submitted')) ||
+             lower.includes('thank');
+    };
+
+    // Check if JSON response body is a success
+    const isJsonSuccess = (data: any): boolean => {
       if (!data) return false;
       if (data.success === true) return true;
       const msg = (data.message || data.msg || data.status || '').toString().toLowerCase();
-      return msg.includes('success') ||
-             msg.includes('present') ||
-             msg.includes('marked') ||
-             msg.includes('recorded') ||
-             msg.includes('attendance') && !msg.includes('invalid');
+      return msg.includes('success') || msg.includes('present') || msg.includes('marked') || msg.includes('recorded');
     };
 
-    // Attempt 1: POST /stu_submitAttendanceSession.json with both token formats
+    // Check if response body is an error
+    const isBodyError = (data: any): boolean => {
+      if (!data) return false;
+      if (typeof data === 'string') {
+        const lower = data.toLowerCase();
+        return lower.includes('invalid') || lower.includes('expired') || lower.includes('already marked') || lower.includes('not valid');
+      }
+      if (data.success === false || data.error === true) return true;
+      const msg = (data.message || data.msg || data.status || '').toString().toLowerCase();
+      return msg.includes('invalid') || msg.includes('expired') || msg.includes('already');
+    };
+
+    // ─── ATTEMPT 1: Direct GET to the exact URL path from QR (most reliable) ───
+    // Juno QR contains the full URL: https://erp.dypiu.ac.in/stu_markStudentAttendanceByQR.htm?sessionId=XXX
+    // We strip the base URL and hit the path directly with the student's session cookies
+    try {
+      let path = rawPayload;
+      // If it's a full URL, extract just the path+query
+      if (rawPayload.startsWith('http')) {
+        const urlObj = new URL(rawPayload);
+        path = urlObj.pathname + urlObj.search;
+      }
+
+      console.log(`[DYPIUJunoAdapter] Attempt 1: GET ${path}`);
+      const res1 = await this.api.get(path, {
+        headers: {
+          'Referer': `${this.baseUrl}/stu_myDashBoard.htm`,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        },
+        timeout: 6000,
+        validateStatus: () => true,
+        maxRedirects: 5
+      });
+
+      console.log(`[DYPIUJunoAdapter] Attempt 1 response: ${res1.status}`, typeof res1.data === 'string' ? res1.data.substring(0, 200) : JSON.stringify(res1.data));
+
+      if (checkSessionExpired(res1.status, res1.data)) throw new Error('SESSION_EXPIRED');
+
+      if (res1.status === 200) {
+        const body = typeof res1.data === 'string' ? res1.data : JSON.stringify(res1.data);
+        if (!isBodyError(res1.data)) {
+          // Any 200 that isn't explicitly an error = success (Juno marks and returns HTML page)
+          return {
+            status: 'CONFIRMED',
+            message: 'Attendance marked successfully on DYPIU Juno ERP.',
+            confirmationRef: `DYP-${Date.now()}`,
+            timestamp: new Date().toISOString()
+          };
+        }
+        console.warn('[DYPIUJunoAdapter] Attempt 1 body error:', body.substring(0, 200));
+      }
+    } catch (err: any) {
+      if (err?.message === 'SESSION_EXPIRED') throw err;
+      console.warn('[DYPIUJunoAdapter] Attempt 1 error:', err?.message);
+    }
+
+    // ─── ATTEMPT 2: GET stu_markStudentAttendanceByQR.htm with sessionId param ───
+    try {
+      const path2 = `/stu_markStudentAttendanceByQR.htm?sessionId=${encodeURIComponent(sessionId)}`;
+      console.log(`[DYPIUJunoAdapter] Attempt 2: GET ${path2}`);
+      const res2 = await this.api.get(path2, {
+        headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` },
+        timeout: 5000,
+        validateStatus: () => true,
+        maxRedirects: 5
+      });
+
+      console.log(`[DYPIUJunoAdapter] Attempt 2 response: ${res2.status}`);
+      if (checkSessionExpired(res2.status, res2.data)) throw new Error('SESSION_EXPIRED');
+
+      if (res2.status === 200 && !isBodyError(res2.data)) {
+        return {
+          status: 'CONFIRMED',
+          message: 'Attendance marked successfully.',
+          confirmationRef: `DYP-${Date.now()}`,
+          timestamp: new Date().toISOString()
+        };
+      }
+    } catch (err: any) {
+      if (err?.message === 'SESSION_EXPIRED') throw err;
+      console.warn('[DYPIUJunoAdapter] Attempt 2 error:', err?.message);
+    }
+
+    // ─── ATTEMPT 3: POST to JSON submit endpoint ───
     try {
       const postData = qs.stringify({
-        sessionToken: sessionInfo.sessionToken,
-        token: sessionInfo.sessionToken,
-        qrPayload: rawToken,
+        sessionId,
+        sessionToken: sessionId,
+        token: sessionId,
+        qrPayload: rawPayload,
         subjectCode: sessionInfo.subjectCode || '',
         challenge: challengeResponse || ''
       });
 
-      const response = await this.api.post('/stu_submitAttendanceSession.json', postData, {
+      console.log(`[DYPIUJunoAdapter] Attempt 3: POST /stu_submitAttendanceSession.json`);
+      const res3 = await this.api.post('/stu_submitAttendanceSession.json', postData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Referer': `${this.baseUrl}/stu_myDashBoard.htm`
@@ -1098,112 +1190,57 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         validateStatus: () => true
       });
 
-      console.log('[DYPIUJunoAdapter] POST submit response:', response.status, JSON.stringify(response.data));
+      console.log(`[DYPIUJunoAdapter] Attempt 3 response: ${res3.status}`, JSON.stringify(res3.data));
+      if (checkSessionExpired(res3.status, res3.data)) throw new Error('SESSION_EXPIRED');
 
-      // Detect session expiry
-      const isSessionExpired =
-        response.status === 401 ||
-        response.status === 403 ||
-        (response.status === 302 && (response.headers?.location || '').includes('login')) ||
-        (typeof response.data === 'string' && response.data.includes('j_spring_security_check'));
-
-      if (isSessionExpired) {
-        throw new Error('SESSION_EXPIRED');
-      }
-
-      if (response.status === 200 || response.status === 201) {
-        const data = typeof response.data === 'string' ? safeParseJson(response.data) : response.data;
-        if (data && isJunoBodySuccess(data)) {
+      if (res3.status === 200 || res3.status === 201) {
+        const data = typeof res3.data === 'string' ? safeParseJson(res3.data) : res3.data;
+        if (data && isJsonSuccess(data)) {
           return {
             status: 'CONFIRMED',
-            message: data?.message || 'Attendance marked successfully on DYPIU Juno ERP.',
+            message: data?.message || 'Attendance marked.',
             confirmationRef: `DYP-${Date.now()}`,
             timestamp: new Date().toISOString()
           };
         }
-        if (data && isJunoBodyError(data)) {
-          console.warn('[DYPIUJunoAdapter] Juno body error on Attempt 1:', data);
-          // Fall through to Attempt 2
-        } else if (!data || Object.keys(data || {}).length === 0) {
-          // Empty JSON body — Juno may have accepted silently (some versions return {})
-          // Try attempt 2 to confirm, but treat this as potentially successful
-        }
-      }
-    } catch (err: any) {
-      if (err?.message === 'SESSION_EXPIRED') throw err;
-      console.warn('[DYPIUJunoAdapter] POST submit error:', err?.message);
-    }
-
-    // Attempt 2: GET /stu_markStudentAttendanceByQR.json — pass full raw payload as token
-    try {
-      const markRes = await this.api.get(
-        `/stu_markStudentAttendanceByQR.json?token=${encodeURIComponent(rawToken)}&sub=${encodeURIComponent(sessionInfo.subjectCode || '')}`,
-        {
-          headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` },
-          timeout: 5000,
-          validateStatus: () => true
-        }
-      );
-
-      console.log('[DYPIUJunoAdapter] GET markByQR response:', markRes.status, JSON.stringify(markRes.data));
-
-      const isSessionExpired2 =
-        markRes.status === 401 ||
-        markRes.status === 403 ||
-        (typeof markRes.data === 'string' && markRes.data.includes('j_spring_security_check'));
-
-      if (isSessionExpired2) {
-        throw new Error('SESSION_EXPIRED');
-      }
-
-      if (markRes.status === 200) {
-        const data = typeof markRes.data === 'string' ? safeParseJson(markRes.data) : markRes.data;
-        if (data && isJunoBodyError(data)) {
+        if (!isBodyError(data)) {
+          // 200 with no clear error = treat as success
           return {
-            status: 'FAILED',
-            message: data?.message || 'QR session invalid or already marked for this account.',
+            status: 'CONFIRMED',
+            message: 'Attendance marked successfully.',
+            confirmationRef: `DYP-${Date.now()}`,
             timestamp: new Date().toISOString()
           };
         }
-        return {
-          status: 'CONFIRMED',
-          message: data?.message || 'Attendance recorded successfully by DYPIU Juno ERP.',
-          confirmationRef: `DYP-${Date.now()}`,
-          timestamp: new Date().toISOString()
-        };
       }
     } catch (err: any) {
       if (err?.message === 'SESSION_EXPIRED') throw err;
-      console.warn('[DYPIUJunoAdapter] GET markByQR error:', err?.message);
+      console.warn('[DYPIUJunoAdapter] Attempt 3 error:', err?.message);
     }
 
-    // Attempt 3: Try alternate Juno endpoints with rawPayload directly
+    // ─── ATTEMPT 4: GET JSON endpoint ───
     try {
-      const alt = await this.api.get(
-        `/stu_recordStudentAttendanceByQR.json?qrData=${encodeURIComponent(rawToken)}`,
+      const res4 = await this.api.get(
+        `/stu_markStudentAttendanceByQR.json?sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(sessionId)}`,
         {
           headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` },
           timeout: 4000,
           validateStatus: () => true
         }
       );
-      if (alt.status === 200) {
-        const data = typeof alt.data === 'string' ? safeParseJson(alt.data) : alt.data;
-        if (!isJunoBodyError(data)) {
-          return {
-            status: 'CONFIRMED',
-            message: data?.message || 'Attendance recorded successfully.',
-            confirmationRef: `DYP-${Date.now()}`,
-            timestamp: new Date().toISOString()
-          };
-        }
+      if (res4.status === 200 && !isBodyError(res4.data)) {
+        return {
+          status: 'CONFIRMED',
+          message: 'Attendance recorded.',
+          confirmationRef: `DYP-${Date.now()}`,
+          timestamp: new Date().toISOString()
+        };
       }
     } catch { /* silent */ }
 
-    // All attempts failed
     return {
       status: 'FAILED',
-      message: 'Could not reach DYPIU Juno ERP to record attendance. Please retry or mark manually.',
+      message: 'Could not reach DYPIU Juno ERP. Please retry within QR window.',
       timestamp: new Date().toISOString()
     };
   }

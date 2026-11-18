@@ -221,17 +221,14 @@ export const ScannerPage: React.FC = () => {
 
           setLastScannedPayload(decodedText);
 
-          try {
-            if (html5QrCodeRef.current?.isScanning) {
-              await html5QrCodeRef.current.stop();
-              setIsScanning(false);
-            }
-          } catch (e) {
-            console.warn('Error pausing scanner:', e);
+          // Stop camera without awaiting — prevents 1-second freeze
+          if (html5QrCodeRef.current?.isScanning) {
+            html5QrCodeRef.current.stop().catch(() => {});
+            setIsScanning(false);
           }
 
-          // Auto-submit attendance immediately
-          await handleAttendanceSubmit(decodedText);
+          // Submit attendance immediately (fire-and-forget, no blocking)
+          handleAttendanceSubmit(decodedText);
         },
         () => {}
       );
