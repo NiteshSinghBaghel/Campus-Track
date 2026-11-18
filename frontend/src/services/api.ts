@@ -8,9 +8,14 @@ import {
 
 // In production, VITE_API_BASE_URL points to Render backend (e.g. https://campus-track-backend.onrender.com)
 // In local dev, we use the Vite proxy at /api -> http://127.0.0.1:5005
+// If VITE_API_BASE_URL is not set (misconfigured Vercel deploy), fall back to same-origin /api
 export const API_BASE = import.meta.env.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL}/api`
   : '/api';
+
+// Render backend URL — used for health pre-warm ping (always absolute)
+// This must match the actual Render service URL
+export const RENDER_BACKEND_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const TOKEN_KEY = 'campustrack_jwt_token';
 
@@ -111,9 +116,11 @@ export const api = {
    */
   wakeUpBackend(): void {
     try {
-      const rawUrl = API_BASE.startsWith('http') ? API_BASE : window.location.origin;
-      const origin = rawUrl.replace(/\/api$/, '');
-      fetch(`${origin}/health`, { mode: 'cors' }).catch(() => {});
+      // Ping /health on the backend (absolute URL if we know it, otherwise relative)
+      const healthUrl = RENDER_BACKEND_URL
+        ? `${RENDER_BACKEND_URL}/health`
+        : `${API_BASE.replace('/api', '')}/health`;
+      fetch(healthUrl, { mode: 'cors' }).catch(() => {});
     } catch {}
   },
 

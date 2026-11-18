@@ -8,24 +8,12 @@ import { multiAccountService } from './services/multiAccountService.js';
 
 export const app = express();
 
-// CORS: allow Vercel frontend + local dev
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  ...(config.corsOrigin && config.corsOrigin !== '*'
-    ? config.corsOrigin.split(',').map(o => o.trim())
-    : [])
-];
-
+// CORS: Allow all origins (mobile PWA + Vercel + local dev)
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
-    if (config.corsOrigin === '*') return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
+  origin: true, // reflect the request origin — works for all clients
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 

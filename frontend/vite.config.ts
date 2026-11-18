@@ -61,8 +61,8 @@ export default defineConfig({
           },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: { cacheName: 'api-cache', expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 }, networkTimeoutSeconds: 10 }
+            handler: 'NetworkOnly',
+            options: { cacheName: 'api-cache' }
           }
         ]
       },
