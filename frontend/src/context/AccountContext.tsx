@@ -167,10 +167,28 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(res.user));
     } catch {}
+
+    // Immediately kick off attendance fetch for the primary account so AttendancePage has 0ms load
+    if (res.user?.primaryAccount?.id) {
+      const pId = res.user.primaryAccount.id;
+      api.getAttendance(pId)
+        .then(data => {
+          if (data) {
+            try {
+              localStorage.setItem(`att_cache_${pId}`, JSON.stringify({ data, ts: Date.now() }));
+              localStorage.setItem(`campustrack_att_${pId}`, JSON.stringify(data));
+              localStorage.setItem(`campustrack_att_${pId}_SEM -1`, JSON.stringify(data));
+              localStorage.setItem('campustrack_attendance_cache', JSON.stringify(data));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+
     await refreshAccounts(res.user.userId);
     // After login: background-refresh all connected accounts' attendance from Juno
     // Small delay so accounts state is settled before we start fetching
-    setTimeout(() => refreshAllAttendance(), 500);
+    setTimeout(() => refreshAllAttendance(), 300);
   };
 
   const logout = () => {
@@ -320,6 +338,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
           try {
             localStorage.setItem(`att_cache_${acc.id}`, JSON.stringify({ data, ts: Date.now() }));
             localStorage.setItem(`campustrack_att_${acc.id}`, JSON.stringify(data));
+            localStorage.setItem(`campustrack_att_${acc.id}_SEM -1`, JSON.stringify(data));
+            localStorage.setItem('campustrack_attendance_cache', JSON.stringify(data));
           } catch {}
           // Bump attendancePercentage in accounts state so Dashboard card updates live
           setAccounts(prev => prev.map(a =>

@@ -133,9 +133,42 @@ const DEFAULT_ATTENDANCE: AttendanceSummary = {
   ]
 };
 
+// Helper to load attendance from any available cache key instantly (0ms delay)
+function loadCachedAttendance(accId?: string, sem = 'SEM -1'): AttendanceSummary | null {
+  if (!accId) return null;
+  try {
+    // 1. Exact semester key
+    const semCached = localStorage.getItem(`campustrack_att_${accId}_${sem}`);
+    if (semCached) {
+      const parsed = JSON.parse(semCached);
+      if (parsed?.subjects && parsed.subjects.length > 0) return parsed;
+    }
+    // 2. Generic page cache
+    const pageCached = localStorage.getItem(`campustrack_att_${accId}`);
+    if (pageCached) {
+      const parsed = JSON.parse(pageCached);
+      if (parsed?.subjects && parsed.subjects.length > 0) return parsed;
+    }
+    // 3. Dashboard cache { data: ..., ts: ... }
+    const dashCached = localStorage.getItem(`att_cache_${accId}`);
+    if (dashCached) {
+      const parsed = JSON.parse(dashCached);
+      if (parsed?.data?.subjects && parsed.data.subjects.length > 0) return parsed.data;
+      if (parsed?.subjects && parsed.subjects.length > 0) return parsed;
+    }
+    // 4. Global generic fallback key
+    const globalCached = localStorage.getItem('campustrack_attendance_cache');
+    if (globalCached) {
+      const parsed = JSON.parse(globalCached);
+      if (parsed?.subjects && parsed.subjects.length > 0) return parsed;
+    }
+  } catch {}
+  return null;
+}
+
 export const AttendancePage: React.FC = () => {
-  const { primaryAccount } = useAccounts();
-  const currentAccount = primaryAccount;
+  const { activeAccount, primaryAccount } = useAccounts();
+  const currentAccount = activeAccount || primaryAccount;
 
   const [activeTab, setActiveTab] = useState<'subjects' | 'analytics'>('subjects');
   const [showSemDropdown, setShowSemDropdown] = useState(false);
@@ -147,19 +180,7 @@ export const AttendancePage: React.FC = () => {
 
   // Instant render (0ms): Load cached attendance immediately so page opens instantly
   const [attendance, setAttendance] = useState<AttendanceSummary>(() => {
-    if (currentAccount?.id) {
-      try {
-        const cached = localStorage.getItem(`campustrack_att_${currentAccount.id}_SEM -1`) ||
-                       localStorage.getItem(`campustrack_att_${currentAccount.id}`);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && Array.isArray(parsed.subjects) && parsed.subjects.length > 0) {
-            return parsed;
-          }
-        }
-      } catch {}
-    }
-    return DEFAULT_ATTENDANCE;
+    return loadCachedAttendance(currentAccount?.id, 'SEM -1') || DEFAULT_ATTENDANCE;
   });
 
   // Core fetch function — reused by both initial load and auto-poll
@@ -171,7 +192,6 @@ export const AttendancePage: React.FC = () => {
     if (!isCurrentSem) return;
 
     const termNum = selectedSem.replace(/[^0-9]/g, '') || '1';
-    const cacheKey = `campustrack_att_${currentAccount.id}_${selectedSem}`;
 
     try {
       const data = await api.getAttendance(currentAccount.id, termNum, force);
@@ -179,14 +199,16 @@ export const AttendancePage: React.FC = () => {
         setAttendance(data);
         setLastLiveSyncAt(new Date().toISOString());
         try {
-          localStorage.setItem(cacheKey, JSON.stringify(data));
+          localStorage.setItem(`campustrack_att_${currentAccount.id}_${selectedSem}`, JSON.stringify(data));
           localStorage.setItem(`campustrack_att_${currentAccount.id}`, JSON.stringify(data));
+          localStorage.setItem(`att_cache_${currentAccount.id}`, JSON.stringify({ data, ts: Date.now() }));
+          localStorage.setItem('campustrack_attendance_cache', JSON.stringify(data));
         } catch {}
       }
     } catch {}
   }, [currentAccount?.id, selectedSem]);
 
-  // When selectedSem changes: load cache instantly, then fetch live
+  // When selectedSem or currentAccount changes: load cache instantly, then fetch live
   useEffect(() => {
     if (!currentAccount?.id) return;
 
@@ -206,27 +228,21 @@ export const AttendancePage: React.FC = () => {
     }
 
     // Load localStorage cache instantly
-    const cacheKey = `campustrack_att_${currentAccount.id}_${selectedSem}`;
-    try {
-      const cached = localStorage.getItem(cacheKey) || localStorage.getItem(`campustrack_att_${currentAccount.id}`);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && Array.isArray(parsed.subjects) && parsed.subjects.length > 0) {
-          setAttendance(parsed);
-        }
-      }
-    } catch {}
-
-    // Initial fetch (non-blocking)
-    setIsRefreshing(true);
+    const cached = loadCachedAttendance(currentAccount.id, selectedSem);
+    if (cached) {
+      setAttendance(cached);
+    }
 
     // If scanner just marked attendance, force-refresh immediately (don't wait for cache)
     const needsRefresh = localStorage.getItem('att_needs_refresh') === 'true';
     if (needsRefresh) {
       localStorage.removeItem('att_needs_refresh');
       localStorage.removeItem('att_needs_refresh_ts');
+      setIsRefreshing(true);
       fetchAttendance(true).finally(() => setIsRefreshing(false));
     } else {
+      // Background fetch without blocking UI
+      if (!cached) setIsRefreshing(true);
       fetchAttendance(false).finally(() => setIsRefreshing(false));
     }
 

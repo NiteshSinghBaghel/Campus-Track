@@ -423,20 +423,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
 
       const absentClasses = totalClasses >= presentClasses ? totalClasses - presentClasses : 57;
 
-      // 5. Fetch date-wise sessions for each subject in parallel (best-effort, non-blocking)
-      if (subjects.length > 0) {
-        await Promise.all(
-          subjects.map(async (sub: any) => {
-            const subjectId = sub.subjectCode || sub.subjectId;
-            if (!subjectId) return;
-            const sessions = await this.fetchSubjectSessions(subjectId, termToQuery, sub.facultyName);
-            if (sessions.length > 0) {
-              sub.sessions = sessions;
-            }
-          })
-        );
-      }
-
       return {
         overallPercentage: overallPercentage > 0 ? overallPercentage : 65,
         totalClasses: totalClasses > 0 ? totalClasses : 161,
@@ -477,68 +463,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         lastSyncedAt: new Date().toISOString()
       };
     }
-  }
-
-  /**
-   * Fetch date-wise lecture sessions for a specific subject from Juno ERP.
-   * Tries multiple known endpoints — returns empty array if none respond with data.
-   */
-  private async fetchSubjectSessions(
-    subjectId: string,
-    termId: string,
-    facultyName?: string
-  ): Promise<{ date: string; status: 'PRESENT' | 'ABSENT'; time?: string; facultyName?: string }[]> {
-    const endpoints = [
-      `/stu_getStudentAttendenceDetail.json?subjectId=${encodeURIComponent(subjectId)}&termId=${encodeURIComponent(termId)}`,
-      `/stu_getLectureAttendanceForSubject.json?subjectId=${encodeURIComponent(subjectId)}&termId=${encodeURIComponent(termId)}`,
-      `/stu_getAttendanceDateWise.json?subjectId=${encodeURIComponent(subjectId)}&termId=${encodeURIComponent(termId)}`,
-      `/stu_getDayWiseAttendance.json?subjectId=${encodeURIComponent(subjectId)}&termId=${encodeURIComponent(termId)}`,
-      `/stu_getSubjectAttendanceDetails.json?subjectId=${encodeURIComponent(subjectId)}&termId=${encodeURIComponent(termId)}`,
-    ];
-
-    for (const endpoint of endpoints) {
-      try {
-        const res = await this.api.get(endpoint, {
-          timeout: 3000,
-          headers: { 'Referer': `${this.baseUrl}/stu_myDashBoard.htm` }
-        });
-        const raw = safeParseJson(res.data);
-        const list: any[] = Array.isArray(raw) ? raw : (raw?.data || raw?.attendance || raw?.sessions || []);
-
-        if (list.length > 0) {
-          // Map Juno's response fields to our AttendanceSession shape
-          return list
-            .filter((s: any) => s && (s.date || s.lectureDate || s.attendanceDate))
-            .map((s: any) => {
-              // Parse date — Juno uses multiple formats: 'DD-MM-YYYY', 'YYYY-MM-DD', 'DD/MM/YYYY'
-              let dateStr = s.date || s.lectureDate || s.attendanceDate || '';
-              if (dateStr.includes('/')) {
-                // Convert DD/MM/YYYY → YYYY-MM-DD
-                const [d, m, y] = dateStr.split('/');
-                dateStr = `${y}-${m?.padStart(2, '0')}-${d?.padStart(2, '0')}`;
-              } else if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
-                // Convert DD-MM-YYYY → YYYY-MM-DD
-                const [d, m, y] = dateStr.split('-');
-                dateStr = `${y}-${m}-${d}`;
-              }
-
-              const statusRaw = (s.attendanceStatus || s.status || s.present || '').toString().toUpperCase();
-              const isPresent = statusRaw === 'P' || statusRaw === 'PRESENT' || statusRaw === '1' || statusRaw === 'TRUE';
-
-              return {
-                date: dateStr,
-                status: isPresent ? 'PRESENT' as const : 'ABSENT' as const,
-                time: s.time || s.startTime || s.lectureTime || undefined,
-                facultyName: s.facultyName || s.facultName || facultyName || undefined
-              };
-            });
-        }
-      } catch {
-        // Try next endpoint
-      }
-    }
-
-    return [];
   }
 
   async getTimetable(date?: string, program = 'MCA', division = 'A'): Promise<TimetableSlot[]> {
