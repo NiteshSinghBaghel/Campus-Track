@@ -219,13 +219,22 @@ export const AttendancePage: React.FC = () => {
 
     // Initial fetch (non-blocking)
     setIsRefreshing(true);
-    fetchAttendance(false).finally(() => setIsRefreshing(false));
 
-    // Auto-poll every 90 seconds for real-time updates (Juno reflects changes in ~1 min)
+    // If scanner just marked attendance, force-refresh immediately (don't wait for cache)
+    const needsRefresh = localStorage.getItem('att_needs_refresh') === 'true';
+    if (needsRefresh) {
+      localStorage.removeItem('att_needs_refresh');
+      localStorage.removeItem('att_needs_refresh_ts');
+      fetchAttendance(true).finally(() => setIsRefreshing(false));
+    } else {
+      fetchAttendance(false).finally(() => setIsRefreshing(false));
+    }
+
+    // Auto-poll every 30 seconds for real-time updates
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     pollIntervalRef.current = setInterval(() => {
       fetchAttendance(false);
-    }, 90 * 1000);
+    }, 30 * 1000);
 
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);

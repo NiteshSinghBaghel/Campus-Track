@@ -183,6 +183,22 @@ export const ScannerPage: React.FC = () => {
       });
 
       setBatchResult(res);
+
+      // Mark attendance cache as stale for all scanned accounts so AttendancePage
+      // immediately force-refreshes when user navigates there
+      try {
+        localStorage.setItem('att_needs_refresh', 'true');
+        localStorage.setItem('att_needs_refresh_ts', Date.now().toString());
+        // Clear per-account cache so stale data doesn't show
+        for (const r of res.results || []) {
+          localStorage.removeItem(`att_cache_${r.accountId}`);
+          localStorage.removeItem(`campustrack_att_${r.accountId}`);
+        }
+        for (const id of targetIds) {
+          localStorage.removeItem(`att_cache_${id}`);
+          localStorage.removeItem(`campustrack_att_${id}`);
+        }
+      } catch {}
     } catch (err) {
       setErrorMsg((err as Error).message);
     } finally {
