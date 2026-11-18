@@ -7,7 +7,6 @@ import https from 'https';
 
 import { fileURLToPath } from 'url';
 
-// ─── KVdb helpers (no npm dep, plain https) ───────────────────────────────────
 const KVDB_BUCKET = process.env.KVDB_BUCKET_ID || 'FZbHKEPG8PJqBTnNiWGPSa';
 
 function kvKey(userId: string) {
@@ -25,7 +24,7 @@ function kvGet(userId: string): Promise<ConnectedAccountRecord[] | null> {
           try {
             const parsed = JSON.parse(body);
             if (Array.isArray(parsed)) { resolve(parsed); return; }
-          } catch {}
+          } catch { }
         }
         resolve(null);
       });
@@ -90,16 +89,10 @@ const __dirname = path.dirname(__filename);
 const DATA_FILE = path.resolve(__dirname, '../../data/accounts.json');
 const DATA_BACKUP_FILE = path.resolve(__dirname, '../../data/accounts.backup.json');
 
-/**
- * Load accounts from persistent sources:
- * 1. Local file (accounts.json or accounts.backup.json)
- * 2. ACCOUNTS_DATA env variable (cloud-safe persistent storage)
- * 3. Empty map
- */
+
 function loadPersistedAccounts(): Map<string, ConnectedAccountRecord> {
   const map = new Map<string, ConnectedAccountRecord>();
 
-  // Priority 1: Local file
   try {
     const fileToRead = fs.existsSync(DATA_FILE) ? DATA_FILE : (fs.existsSync(DATA_BACKUP_FILE) ? DATA_BACKUP_FILE : null);
     if (fileToRead) {
@@ -115,7 +108,6 @@ function loadPersistedAccounts(): Map<string, ConnectedAccountRecord> {
     console.warn('[MultiAccountService] Local file load failed:', e);
   }
 
-  // Priority 2: ACCOUNTS_DATA environment variable (cloud-safe persistent storage)
   try {
     const envData = process.env.ACCOUNTS_DATA;
     if (envData && envData.trim() !== '' && envData !== '[]') {
@@ -127,7 +119,7 @@ function loadPersistedAccounts(): Map<string, ConnectedAccountRecord> {
           const dir = path.dirname(DATA_FILE);
           if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-        } catch {}
+        } catch { }
         return map;
       }
     }
@@ -143,7 +135,6 @@ function persistAccounts(accounts: Map<string, ConnectedAccountRecord>) {
   const data = Array.from(accounts.values());
   const serialized = JSON.stringify(data, null, 2);
 
-  // Always write to local file
   try {
     const dir = path.dirname(DATA_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -153,7 +144,6 @@ function persistAccounts(accounts: Map<string, ConnectedAccountRecord>) {
     console.warn('[MultiAccountService] Failed to save accounts to file:', e);
   }
 
-  // Persist per-user to KVdb cloud (non-blocking, fire-and-forget)
   const byUser = new Map<string, ConnectedAccountRecord[]>();
   for (const acc of data) {
     if (!acc.userId) continue;
@@ -174,10 +164,7 @@ class MultiAccountService {
   private adapters = new Map<string, DYPIUJunoAdapter>();
   private cloudLoadedUsers = new Set<string>();
 
-  /**
-   * Load a user's accounts from KVdb cloud if not already in memory.
-   * Called on login and on getAccounts to ensure cross-device sync.
-   */
+
   async loadUserFromCloud(userId: string): Promise<void> {
     if (!userId) return;
 
@@ -185,7 +172,6 @@ class MultiAccountService {
       console.log(`[MultiAccountService] Loading user ${userId} from KVdb cloud...`);
       const cloudRecords = await kvGet(userId);
       if (cloudRecords !== null && Array.isArray(cloudRecords)) {
-        // Remove old in-memory accounts for this user that are not in cloud records
         const currentForUser = Array.from(this.accounts.values()).filter(a => a.userId === userId);
         const cloudIds = new Set(cloudRecords.map(r => r.id));
         for (const localAcc of currentForUser) {
@@ -195,7 +181,6 @@ class MultiAccountService {
           }
         }
 
-        // Add or update accounts from cloud
         for (const rec of cloudRecords) {
           if (rec.id) {
             rec.userId = userId;
@@ -215,9 +200,7 @@ class MultiAccountService {
     return Array.from(this.accounts.values()).filter(a => a.userId === userId);
   }
 
-  /**
-   * Async version that ensures cloud data is loaded first (used on login)
-   */
+
   async getAccountsWithCloudSync(userId: string): Promise<ConnectedAccountRecord[]> {
     if (!userId) return [];
     await this.loadUserFromCloud(userId);
@@ -265,7 +248,8 @@ class MultiAccountService {
     try {
       const summary = await params.adapter.getAttendance();
       initialAttendancePercentage = summary.overallPercentage;
-    } catch {}
+      this.setCachedAttendance(id, summary);
+    } catch { }
 
     const account: ConnectedAccountRecord = {
       id,
@@ -291,12 +275,7 @@ class MultiAccountService {
     return { account, profile: params.profile };
   }
 
-  /**
-   * Returns a live, session-restored adapter for the given account.
-   * - Imports stored cookies from the encrypted session.
-   * - If skipValidation is true (e.g. for fast QR scan), returns immediately without waiting for isSessionValid().
-   * - If the session is expired, re-authenticates using the encrypted password.
-   */
+
   async getReadyAdapter(accountId: string, skipValidation = false): Promise<DYPIUJunoAdapter> {
     const account = this.accounts.get(accountId);
     if (!account) throw new Error(`Account ${accountId} not found`);
@@ -307,7 +286,6 @@ class MultiAccountService {
       this.adapters.set(accountId, adapter);
     }
 
-    // 1. Restore cookie jar from stored encrypted session
     if (account.encryptedSession) {
       try {
         const sessionJson = decrypt(account.encryptedSession);
@@ -317,12 +295,10 @@ class MultiAccountService {
       }
     }
 
-    // Fast-path: When scanning QR, do NOT wait 2-3 seconds for isSessionValid()!
     if (skipValidation) {
       return adapter;
     }
 
-    // 2. Validate session; re-auth seamlessly if expired
     let valid = false;
     try {
       valid = await adapter.isSessionValid();
@@ -338,7 +314,6 @@ class MultiAccountService {
           const ok = await adapter.authenticate(username, password);
 
           if (ok) {
-            // Save refreshed session cookies
             account.encryptedSession = encrypt(adapter.exportSessionCookies());
             account.connectionStatus = 'CONNECTED';
             this.accounts.set(accountId, account);
@@ -369,7 +344,6 @@ class MultiAccountService {
       throw new Error('Explicit student consent is required to link this account.');
     }
 
-    // Check if this student account (PRN or Email) is already linked in this user's workspace
     const existingAccounts = this.getAccounts(params.userId);
     const alreadyLinked = existingAccounts.find(
       a =>
@@ -395,11 +369,11 @@ class MultiAccountService {
     const encryptedSession = encrypt(adapter.exportSessionCookies());
     const encryptedUsername = encrypt(params.username);
 
-    // Auto-sync attendance immediately upon linking
     let initialAttendancePercentage = 0;
     try {
       const summary = await adapter.getAttendance();
       initialAttendancePercentage = summary.overallPercentage;
+      this.setCachedAttendance(id, summary);
     } catch (e) {
       console.warn('[MultiAccount] Immediate initial attendance sync notice:', e);
     }
@@ -425,7 +399,6 @@ class MultiAccountService {
     this.adapters.set(id, adapter);
     persistAccounts(this.accounts);
 
-    // Also check if PRN or email matches after profile is resolved
     const duplicateProfile = existingAccounts.find(
       a => a.id !== id && (
         (typeof profile.prn === 'string' && typeof a.prn === 'string' && a.prn.toLowerCase() === profile.prn.toLowerCase()) ||
@@ -445,16 +418,21 @@ class MultiAccountService {
   private attendanceCache = new Map<string, { summary: AttendanceSummary; expiresAt: number }>();
   private timetableCache = new Map<string, { slots: TimetableSlot[]; expiresAt: number }>();
 
-  /**
-   * Clear cached attendance for a specific account so next fetch goes live.
-   * Called automatically after QR scan / attendance marking.
-   */
+
   clearAttendanceCache(accountId: string): void {
     for (const key of this.attendanceCache.keys()) {
       if (key.startsWith(accountId)) {
         this.attendanceCache.delete(key);
       }
     }
+  }
+
+  setCachedAttendance(accountId: string, summary: AttendanceSummary, termId?: string): void {
+    const cacheKey = `${accountId}:${termId || 'default'}`;
+    this.attendanceCache.set(cacheKey, {
+      summary,
+      expiresAt: Date.now() + 180 * 1000 // 3 minutes
+    });
   }
 
   async syncAccountAttendance(accountId: string, termId?: string, forceRefresh = false): Promise<AttendanceSummary> {
@@ -464,7 +442,6 @@ class MultiAccountService {
     const cacheKey = `${accountId}:${termId || 'default'}`;
     const cached = this.attendanceCache.get(cacheKey);
 
-    // Return cached attendance if fresh (< 90 seconds) — unless force refresh requested
     if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
       return cached.summary;
     }
@@ -478,7 +455,6 @@ class MultiAccountService {
       this.accounts.set(accountId, account);
       persistAccounts(this.accounts);
 
-      // Cache for 90 seconds (fast enough to pick up new attendance within 2 polls)
       this.attendanceCache.set(cacheKey, {
         summary,
         expiresAt: Date.now() + 90 * 1000
@@ -486,17 +462,12 @@ class MultiAccountService {
 
       return summary;
     } catch (err) {
-      // Return stale cache if exists
       if (cached) return cached.summary;
-      // No fallback hardcoded data — throw so the frontend knows to use its cached copy
       throw err;
     }
   }
 
-  /**
-   * Pre-warm all sessions for a user in background (called on login and on scanner page open).
-   * This ensures sessions are live before QR scan starts, so there's no re-auth delay during 10s QR window.
-   */
+
   async preWarmAllSessions(userId: string): Promise<void> {
     const accounts = this.getAccounts(userId);
     await Promise.all(
@@ -505,7 +476,6 @@ class MultiAccountService {
         .map(async acc => {
           try {
             const adapter = await this.getReadyAdapter(acc.id, false); // validate + re-auth if needed
-            // Save refreshed session
             acc.encryptedSession = encrypt(adapter.exportSessionCookies());
             acc.connectionStatus = 'CONNECTED';
             this.accounts.set(acc.id, acc);
@@ -524,13 +494,11 @@ class MultiAccountService {
 
     const cacheKey = `${accountId}:${date || 'today'}:${division}`;
     const cached = this.timetableCache.get(cacheKey);
-    // Return cached timetable if fresh (< 30 minutes) — INSTANT response
     if (cached && cached.expiresAt > Date.now()) {
       return cached.slots;
     }
 
     try {
-      // 1. First attempt: Try fetching live timetable directly via student's authenticated session
       const readyAdapter = await this.getReadyAdapter(accountId);
       const liveSlots = await readyAdapter.getTimetable(date, program, division);
       if (liveSlots && liveSlots.length > 0) {
@@ -544,7 +512,6 @@ class MultiAccountService {
       console.warn(`[MultiAccountService] Live timetable fetch attempt notice for ${accountId}:`, e);
     }
 
-    // 2. Fallback: Serve student's program & division routine
     const fallbackAdapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in');
     const slots = await fallbackAdapter.getTimetable(date, program, division);
 
@@ -581,15 +548,14 @@ class MultiAccountService {
     const userId = account?.userId || fallbackUserId;
     this.adapters.delete(id);
     const deleted = this.accounts.delete(id);
-    
-    // Always persist to local file and sync deletion to KVdb cloud
+
     persistAccounts(this.accounts);
 
     if (userId) {
       const remaining = Array.from(this.accounts.values()).filter(a => a.userId === userId);
       await kvPut(userId, remaining);
     }
-    
+
     return deleted || Boolean(account);
   }
 }

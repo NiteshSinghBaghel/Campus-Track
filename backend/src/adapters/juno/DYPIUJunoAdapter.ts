@@ -75,24 +75,21 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         timeout: 8000
       });
 
-      // Strict redirect check (resolves false-positive bug)
       const location = response.headers.location || '';
       if (location.includes('failure=true') || location.includes('login_error') || response.status >= 400) {
         return false;
       }
 
-      // Step 3: Follow redirect to /home.htm
       const redirectPath = location.startsWith('http') ? location : `${this.baseUrl}${location.startsWith('/') ? '' : '/'}${location || 'home.htm'}`;
       await this.api.get(redirectPath, {
         headers: { 'Referer': `${this.baseUrl}/login.htm` },
         timeout: 5000
       });
 
-      // Step 4: Prime dashboard context (non-blocking — fire-and-forget for speed)
       this.api.get('/stu_myDashBoard.htm', {
         headers: { 'Referer': `${this.baseUrl}/home.htm` },
         timeout: 3000
-      }).catch(() => {});
+      }).catch(() => { });
 
       return await this.isSessionValid();
     } catch (error) {
@@ -115,7 +112,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
 
   async getStudentProfile(): Promise<StudentProfile> {
     try {
-      // 1. Fetch personal details
       let info: any = {};
       try {
         const res = await this.api.get('/stu_getPersonalInformation.json', {
@@ -127,7 +123,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         if (this.debug) console.warn('[DYPIUJunoAdapter] Personal info fetch failed:', e);
       }
 
-      // 2. Fetch academic course & semester details
       let academic: any = {};
       try {
         const aiRes = await this.api.get('/stu_getAcademicInformationForBothCources.json', {
@@ -173,7 +168,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
 
   async getAttendance(termId?: string): Promise<AttendanceSummary> {
     try {
-      // 1. Fetch high-level summary from /stu_getAttendanceDetails.json
       let totalClasses = 0;
       let presentClasses = 0;
       let overallPercentage = 0;
@@ -195,11 +189,9 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         if (this.debug) console.warn('[DYPIUJunoAdapter] Attendance summary fetch failed:', e);
       }
 
-      // 2. Fetch subject-wise breakdown from /stu_getSubjectOnChangeWithSemId1.json or /stu_getGraphForStudentAttendence.json
       let subjects: any[] = [];
       const termToQuery = termId || '1';
 
-      // Attempt 1: Fetch exact course file data (contains subject, faculty, present count, absent count)
       try {
         const courseRes = await this.api.get(
           `/stu_getSubjectOnChangeWithSemId1.json?termId=${encodeURIComponent(termToQuery)}&refreshData=0`,
@@ -233,7 +225,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         if (this.debug) console.warn('[DYPIUJunoAdapter] Course attendance fetch failed:', e);
       }
 
-      // Attempt 2: If course endpoint is empty, try /stu_getGraphForStudentAttendence.json
       if (subjects.length === 0) {
         try {
           const graphRes = await this.api.post(
@@ -271,7 +262,6 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         }
       }
 
-      // Attempt 3: Try termId=All
       if (subjects.length === 0 && termToQuery !== 'All') {
         try {
           const graphResAll = await this.api.post(
@@ -309,157 +299,28 @@ export class DYPIUJunoAdapter implements ERPAdapter {
         }
       }
 
-      // 4. Default Sem 1 MCA curriculum structure matching real Juno ERP records
-      // If student is in a different semester or no courses found for requested term (e.g. Sem 2/3/4 for a Sem 1 student)
-      if (subjects.length === 0) {
-        if (termToQuery !== '1' && termToQuery !== 'All' && termToQuery !== 'SEM -1') {
-          return {
-            overallPercentage: 0,
-            totalClasses: 0,
-            presentClasses: 0,
-            absentClasses: 0,
-            subjects: [],
-            lastSyncedAt: new Date().toISOString()
-          };
-        }
 
-        subjects = [
-          {
-            subjectCode: 'MCA1005',
-            subjectName: 'Artificial Intelligence & Data Science',
-            facultyName: 'Mr. Anurag Madhav Gaikwad',
-            totalClasses: 25,
-            presentClasses: 23,
-            absentClasses: 2,
-            percentage: 92
-          },
-          {
-            subjectCode: 'MCA1005P',
-            subjectName: 'Artificial Intelligence & Data Science (Lab)',
-            facultyName: 'Mr. Anurag Madhav Gaikwad',
-            totalClasses: 10,
-            presentClasses: 0,
-            absentClasses: 10,
-            percentage: 0
-          },
-          {
-            subjectCode: 'MCA1004',
-            subjectName: 'Data Mining & Warehousing',
-            facultyName: 'Mrs. Mayuri Ajinkya Khade',
-            totalClasses: 26,
-            presentClasses: 16,
-            absentClasses: 10,
-            percentage: 62
-          },
-          {
-            subjectCode: 'MCA1004P',
-            subjectName: 'Data Mining & Warehousing (Lab)',
-            facultyName: 'Mrs. Mayuri Ajinkya Khade',
-            totalClasses: 12,
-            presentClasses: 8,
-            absentClasses: 4,
-            percentage: 67
-          },
-          {
-            subjectCode: 'MCA1001',
-            subjectName: 'Statistical Mathematics',
-            facultyName: 'Ms. Shraddha S. Ghatol',
-            totalClasses: 25,
-            presentClasses: 17,
-            absentClasses: 8,
-            percentage: 68
-          },
-          {
-            subjectCode: 'MCA1002',
-            subjectName: 'Design Analysis & Algorithm',
-            facultyName: 'Dr. Kiran Pandey',
-            totalClasses: 28,
-            presentClasses: 20,
-            absentClasses: 8,
-            percentage: 71
-          },
-          {
-            subjectCode: 'MCA1002P',
-            subjectName: 'Design Analysis & Algorithm (Lab)',
-            facultyName: 'Mr. Rohit Deepak Rane',
-            totalClasses: 10,
-            presentClasses: 5,
-            absentClasses: 5,
-            percentage: 50
-          },
-          {
-            subjectCode: 'MCA1003',
-            subjectName: 'Data Structure with Python',
-            facultyName: 'Mr. Abhijeet Nitin Jadhav',
-            totalClasses: 25,
-            presentClasses: 16,
-            absentClasses: 9,
-            percentage: 64
-          },
-          {
-            subjectCode: 'MCA1003P',
-            subjectName: 'Data Structure with Python (Lab)',
-            facultyName: 'Mr. Abhijeet Nitin Jadhav',
-            totalClasses: 10,
-            presentClasses: 6,
-            absentClasses: 4,
-            percentage: 60
-          },
-          {
-            subjectCode: 'MCA1006',
-            subjectName: 'Professional Skills - I',
-            facultyName: 'Mr. Nikhil Goud',
-            totalClasses: 10,
-            presentClasses: 8,
-            absentClasses: 2,
-            percentage: 80
-          }
-        ];
-
-        totalClasses = 161;
-        presentClasses = 104;
-        overallPercentage = 65;
+      if (overallPercentage === 0 && totalClasses > 0) {
+        overallPercentage = parseFloat(((presentClasses / totalClasses) * 100).toFixed(2));
       }
-
-      const absentClasses = totalClasses >= presentClasses ? totalClasses - presentClasses : 57;
+      const absentClasses = totalClasses >= presentClasses ? totalClasses - presentClasses : 0;
 
       return {
-        overallPercentage: overallPercentage > 0 ? overallPercentage : 65,
-        totalClasses: totalClasses > 0 ? totalClasses : 161,
-        presentClasses: presentClasses > 0 ? presentClasses : 104,
+        overallPercentage,
+        totalClasses,
+        presentClasses,
         absentClasses,
         subjects,
         lastSyncedAt: new Date().toISOString()
       };
     } catch (err) {
-      if (termId && termId !== '1' && termId !== 'All' && termId !== 'SEM -1') {
-        return {
-          overallPercentage: 0,
-          totalClasses: 0,
-          presentClasses: 0,
-          absentClasses: 0,
-          subjects: [],
-          lastSyncedAt: new Date().toISOString()
-        };
-      }
-      // In case of any error, serve the actual Juno MCA Sem-1 Div-A attendance instantly
+      if (this.debug) console.warn('[DYPIUJunoAdapter] getAttendance error:', err);
       return {
-        overallPercentage: 65,
-        totalClasses: 161,
-        presentClasses: 104,
-        absentClasses: 57,
-        subjects: [
-          { subjectCode: 'MCA1005', subjectName: 'Artificial Intelligence & Data Science', facultyName: 'Mr. Anurag Madhav Gaikwad', totalClasses: 25, presentClasses: 23, absentClasses: 2, percentage: 92 },
-          { subjectCode: 'MCA1005P', subjectName: 'Artificial Intelligence & Data Science (Lab)', facultyName: 'Mr. Anurag Madhav Gaikwad', totalClasses: 10, presentClasses: 0, absentClasses: 10, percentage: 0 },
-          { subjectCode: 'MCA1004', subjectName: 'Data Mining & Warehousing', facultyName: 'Mrs. Mayuri Ajinkya Khade', totalClasses: 26, presentClasses: 16, absentClasses: 10, percentage: 62 },
-          { subjectCode: 'MCA1004P', subjectName: 'Data Mining & Warehousing (Lab)', facultyName: 'Mrs. Mayuri Ajinkya Khade', totalClasses: 12, presentClasses: 8, absentClasses: 4, percentage: 67 },
-          { subjectCode: 'MCA1001', subjectName: 'Statistical Mathematics', facultyName: 'Ms. Shraddha S. Ghatol', totalClasses: 25, presentClasses: 17, absentClasses: 8, percentage: 68 },
-          { subjectCode: 'MCA1002', subjectName: 'Design Analysis & Algorithm', facultyName: 'Dr. Kiran Pandey', totalClasses: 28, presentClasses: 20, absentClasses: 8, percentage: 71 },
-          { subjectCode: 'MCA1002P', subjectName: 'Design Analysis & Algorithm (Lab)', facultyName: 'Mr. Rohit Deepak Rane', totalClasses: 10, presentClasses: 5, absentClasses: 5, percentage: 50 },
-          { subjectCode: 'MCA1003', subjectName: 'Data Structure with Python', facultyName: 'Mr. Abhijeet Nitin Jadhav', totalClasses: 25, presentClasses: 16, absentClasses: 9, percentage: 64 },
-          { subjectCode: 'MCA1003P', subjectName: 'Data Structure with Python (Lab)', facultyName: 'Mr. Abhijeet Nitin Jadhav', totalClasses: 10, presentClasses: 6, absentClasses: 4, percentage: 60 },
-          { subjectCode: 'MCA1006', subjectName: 'Professional Skills - I', facultyName: 'Mr. Nikhil Goud', totalClasses: 10, presentClasses: 8, absentClasses: 2, percentage: 80 }
-        ],
+        overallPercentage: 0,
+        totalClasses: 0,
+        presentClasses: 0,
+        absentClasses: 0,
+        subjects: [],
         lastSyncedAt: new Date().toISOString()
       };
     }
@@ -996,10 +857,10 @@ export class DYPIUJunoAdapter implements ERPAdapter {
     const isHtmlSuccess = (body: string): boolean => {
       const lower = body.toLowerCase();
       return lower.includes('success') ||
-             lower.includes('present') ||
-             lower.includes('marked') ||
-             lower.includes('attendance') && (lower.includes('recorded') || lower.includes('submitted')) ||
-             lower.includes('thank');
+        lower.includes('present') ||
+        lower.includes('marked') ||
+        lower.includes('attendance') && (lower.includes('recorded') || lower.includes('submitted')) ||
+        lower.includes('thank');
     };
 
     // Check if JSON response body is a success

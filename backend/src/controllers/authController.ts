@@ -11,16 +11,12 @@ const loginSchema = z.object({
 });
 
 export const authController = {
-  /**
-   * Primary Login: Authenticates student via Juno ERP, registers them as the Primary User,
-   * generates a persistent JWT token for this user's isolated workspace.
-   */
+
   async primaryLogin(req: Request, res: Response) {
     try {
       const parsed = loginSchema.parse(req.body);
       const cleanUsername = parsed.username.trim();
 
-      // 1. Authenticate credentials against DYPIU Juno ERP for THIS specific student
       const { DYPIUJunoAdapter } = await import('../adapters/juno/DYPIUJunoAdapter.js');
       const adapter = new DYPIUJunoAdapter('https://erp.dypiu.ac.in', true);
       const ok = await adapter.authenticate(cleanUsername, parsed.password);
@@ -33,13 +29,11 @@ export const authController = {
         return;
       }
 
-      // 2. Fetch student profile from Juno ERP
       const profile = await adapter.getStudentProfile();
       const canonicalPrn = (profile.prn && profile.prn !== 'N/A' ? profile.prn : cleanUsername).toLowerCase();
       const userId = `usr_${Buffer.from(canonicalPrn).toString('hex')}`;
 
-      // 3. Check if this student already has an account in this workspace
-      //    First load from KVdb cloud to restore cross-device accounts
+
       await multiAccountService.loadUserFromCloud(userId);
       const userAccounts = multiAccountService.getAccounts(userId);
       let primaryAcc = userAccounts.find(a => {
@@ -55,7 +49,6 @@ export const authController = {
       });
 
       if (!primaryAcc) {
-        // Link as primary account for this user's isolated workspace
         const result = await multiAccountService.linkAccountWithAdapter({
           userId,
           adapter,
@@ -66,7 +59,6 @@ export const authController = {
         });
         primaryAcc = result.account;
       } else {
-        // Update session and password for existing account
         const { encrypt } = await import('../utils/crypto.js');
         primaryAcc.encryptedPassword = encrypt(parsed.password);
         primaryAcc.encryptedSession = encrypt(adapter.exportSessionCookies());
@@ -77,11 +69,23 @@ export const authController = {
           primaryAcc.studentName = profile.studentName;
         }
         multiAccountService.updateAccount(primaryAcc);
-        // Cache the live authenticated adapter so images and session work immediately
         multiAccountService.setAdapter(primaryAcc.id, adapter);
       }
 
-      // 4. Generate long-lived JWT token (1 year persistence)
+      // 4. Fetch live attendance right at login so primaryAcc has the real percentage immediately
+      let liveAttendance: any = null;
+      try {
+        liveAttendance = await adapter.getAttendance();
+        if (liveAttendance && typeof liveAttendance.overallPercentage === 'number') {
+          primaryAcc.attendancePercentage = liveAttendance.overallPercentage;
+          primaryAcc.lastSyncedAt = liveAttendance.lastSyncedAt;
+          multiAccountService.updateAccount(primaryAcc);
+          multiAccountService.setCachedAttendance(primaryAcc.id, liveAttendance);
+        }
+      } catch (attErr) {
+        console.warn('[authController] Login attendance sync notice:', attErr);
+      }
+
       const token = jwt.sign(
         {
           userId,
@@ -102,7 +106,8 @@ export const authController = {
         user: {
           userId,
           primaryAccount: sanitized
-        }
+        },
+        attendance: liveAttendance
       });
     } catch (err: any) {
       console.error('[authController] primaryLogin error:', err);
@@ -117,9 +122,6 @@ export const authController = {
     }
   },
 
-  /**
-   * Return current logged in session info
-   */
   async getMe(req: AuthenticatedRequest, res: Response) {
     try {
       if (!req.user || !req.user.userId) {

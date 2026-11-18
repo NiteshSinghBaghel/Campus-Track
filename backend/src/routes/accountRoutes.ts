@@ -4,7 +4,6 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// Profile image endpoint: Accessible directly by HTML <img> tags
 router.get('/:id/image', accountController.getAccountImage);
 
 router.use(authMiddleware);

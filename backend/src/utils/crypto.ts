@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import { config } from '../config/index.js';
 
-// Ensure key is 32 bytes
 const getKey = (): Buffer => {
   return crypto.createHash('sha256').update(config.encryptionKey).digest();
 };

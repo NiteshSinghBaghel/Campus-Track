@@ -1,46 +1,46 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>DYPIU TRACK — DYPIU Juno ERP Companion</title>
-    <meta name="description" content="DYPIU TRACK — Multi-Account Attendance & Student Platform for D. Y. Patil International University" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
-    <link rel="manifest" href="/manifest.json" />
 
-    <!-- Chrome / Android -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="DYPIU TRACK" />
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>DYPIU TRACK — DYPIU Juno ERP Companion</title>
+  <meta name="description"
+    content="DYPIU TRACK — Multi-Account Attendance & Student Platform for D. Y. Patil International University" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+  <link rel="manifest" href="/manifest.json" />
 
-    <!-- iOS / Safari -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="DYPIU TRACK" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="DYPIU TRACK" />
 
-    <!-- Windows -->
-    <meta name="msapplication-TileColor" content="#0f172a" />
-    <meta name="msapplication-TileImage" content="/icons/icon-144.png" />
-    <meta name="msapplication-config" content="/browserconfig.xml" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="DYPIU TRACK" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 
-    <!-- Early PWA Install Prompt Capture & Auto-Trigger -->
-    <script>
+  <meta name="msapplication-TileColor" content="#0f172a" />
+  <meta name="msapplication-TileImage" content="/icons/icon-144.png" />
+  <meta name="msapplication-config" content="/browserconfig.xml" />
+
+  <script>
+    window.__deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__deferredPrompt = e;
+      window.dispatchEvent(new Event('pwa-prompt-ready'));
+    });
+    window.addEventListener('appinstalled', function () {
       window.__deferredPrompt = null;
-      window.addEventListener('beforeinstallprompt', function (e) {
-        e.preventDefault();
-        window.__deferredPrompt = e;
-        window.dispatchEvent(new Event('pwa-prompt-ready'));
-      });
-      window.addEventListener('appinstalled', function () {
-        window.__deferredPrompt = null;
-        window.dispatchEvent(new Event('pwa-installed'));
-      });
-    </script>
-  </head>
-  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+      window.dispatchEvent(new Event('pwa-installed'));
+    });
+  </script>
+</head>
+
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

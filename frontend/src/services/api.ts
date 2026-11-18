@@ -124,17 +124,17 @@ export const api = {
     } catch {}
   },
 
-  async login(params: { username: string; password: string }): Promise<{ token: string; user: AuthUser }> {
+  async login(params: { username: string; password: string }): Promise<{ token: string; user: AuthUser; attendance?: AttendanceSummary }> {
     // Generous 75s timeout to allow Render container cold boot (~35-45s) + Juno ERP roundtrip (~5s)
     const doLogin = () =>
-      request<{ success: boolean; token: string; user: AuthUser }>(`${API_BASE}/auth/login`, {
+      request<{ success: boolean; token: string; user: AuthUser; attendance?: AttendanceSummary }>(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
         timeoutMs: 75000
       });
 
-    let data: { success: boolean; token: string; user: AuthUser };
+    let data: { success: boolean; token: string; user: AuthUser; attendance?: AttendanceSummary };
     try {
       data = await doLogin();
     } catch (err: any) {
@@ -150,7 +150,7 @@ export const api = {
     if (data.token) {
       authStorage.setToken(data.token);
     }
-    return { token: data.token, user: data.user };
+    return { token: data.token, user: data.user, attendance: data.attendance };
   },
 
   async getMe(): Promise<{ user: AuthUser } | null> {

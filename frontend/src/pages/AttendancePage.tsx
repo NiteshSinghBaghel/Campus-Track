@@ -33,104 +33,13 @@ function formatSessionDate(dateStr: string) {
   }
 }
 
-const DEFAULT_ATTENDANCE: AttendanceSummary = {
-  overallPercentage: 65,
-  totalClasses: 161,
-  presentClasses: 104,
-  absentClasses: 57,
+const EMPTY_ATTENDANCE: AttendanceSummary = {
+  overallPercentage: 0,
+  totalClasses: 0,
+  presentClasses: 0,
+  absentClasses: 0,
   lastSyncedAt: new Date().toISOString(),
-  subjects: [
-    {
-      subjectCode: 'MCA1005',
-      subjectName: 'Artificial Intelligence & Data Science',
-      facultyName: 'MR.ANURAG MADHAV GAIKWAD',
-      totalClasses: 25,
-      presentClasses: 23,
-      absentClasses: 2,
-      percentage: 92
-    },
-    {
-      subjectCode: 'MCA1005P',
-      subjectName: 'Artificial Intelligence & Data Science',
-      facultyName: 'MR.ANURAG MADHAV GAIKWAD',
-      totalClasses: 10,
-      presentClasses: 0,
-      absentClasses: 10,
-      percentage: 0
-    },
-    {
-      subjectCode: 'MCA1004',
-      subjectName: 'Data Mining & Warehousing',
-      facultyName: 'MRS.MAYURI AJINKYA KHADE',
-      totalClasses: 26,
-      presentClasses: 16,
-      absentClasses: 10,
-      percentage: 62
-    },
-    {
-      subjectCode: 'MCA1004P',
-      subjectName: 'Data Mining & Warehousing (Lab)',
-      facultyName: 'MRS.MAYURI AJINKYA KHADE',
-      totalClasses: 12,
-      presentClasses: 8,
-      absentClasses: 4,
-      percentage: 67
-    },
-    {
-      subjectCode: 'MCA1001',
-      subjectName: 'Statistical Mathematics',
-      facultyName: 'MS.SHRADDHA S. GHATOL',
-      totalClasses: 25,
-      presentClasses: 17,
-      absentClasses: 8,
-      percentage: 68
-    },
-    {
-      subjectCode: 'MCA1002',
-      subjectName: 'Design Analysis & Algorithm',
-      facultyName: 'DR.KIRAN PANDEY',
-      totalClasses: 28,
-      presentClasses: 20,
-      absentClasses: 8,
-      percentage: 71
-    },
-    {
-      subjectCode: 'MCA1002P',
-      subjectName: 'Design Analysis & Algorithm (Lab)',
-      facultyName: 'MR.ROHIT DEEPAK RANE',
-      totalClasses: 10,
-      presentClasses: 5,
-      absentClasses: 5,
-      percentage: 50
-    },
-    {
-      subjectCode: 'MCA1003',
-      subjectName: 'Data Structure with Python',
-      facultyName: 'MR.ABHIJEET NITIN JADHAV',
-      totalClasses: 25,
-      presentClasses: 16,
-      absentClasses: 9,
-      percentage: 64
-    },
-    {
-      subjectCode: 'MCA1003P',
-      subjectName: 'Data Structure with Python (Lab)',
-      facultyName: 'MR.ABHIJEET NITIN JADHAV',
-      totalClasses: 10,
-      presentClasses: 6,
-      absentClasses: 4,
-      percentage: 60
-    },
-    {
-      subjectCode: 'MCA1006',
-      subjectName: 'Professional Skills - I',
-      facultyName: 'MR.NIKHIL GOUD',
-      totalClasses: 10,
-      presentClasses: 8,
-      absentClasses: 2,
-      percentage: 80
-    }
-  ]
+  subjects: []
 };
 
 // Helper to load attendance from any available cache key instantly (0ms delay)
@@ -180,7 +89,7 @@ export const AttendancePage: React.FC = () => {
 
   // Instant render (0ms): Load cached attendance immediately so page opens instantly
   const [attendance, setAttendance] = useState<AttendanceSummary>(() => {
-    return loadCachedAttendance(currentAccount?.id, 'SEM -1') || DEFAULT_ATTENDANCE;
+    return loadCachedAttendance(currentAccount?.id, 'SEM -1') || EMPTY_ATTENDANCE;
   });
 
   // Core fetch function — reused by both initial load and auto-poll
@@ -265,9 +174,10 @@ export const AttendancePage: React.FC = () => {
     setIsRefreshing(false);
   };
 
-  const overallPct = attendance?.overallPercentage || currentAccount?.attendancePercentage || 65;
-  const presentCount = attendance?.presentClasses || Math.round((attendance?.totalClasses || 161) * (overallPct / 100));
-  const absentCount = attendance?.absentClasses || ((attendance?.totalClasses || 161) - presentCount);
+  const overallPct = attendance?.overallPercentage ?? currentAccount?.attendancePercentage ?? 0;
+  const totalCount = attendance?.totalClasses || 0;
+  const presentCount = attendance?.presentClasses ?? (totalCount > 0 ? Math.round(totalCount * (overallPct / 100)) : 0);
+  const absentCount = attendance?.absentClasses ?? (totalCount >= presentCount ? totalCount - presentCount : 0);
   const shortagePct = overallPct >= 75 ? '0%' : `${(75 - overallPct).toFixed(2)}%`;
 
   // Check if semester has no active courses/records

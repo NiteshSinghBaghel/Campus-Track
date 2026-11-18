@@ -11,10 +11,7 @@ const oneScanSchema = z.object({
 });
 
 export const attendanceController = {
-  /**
-   * Pre-warm all Juno sessions for a user so they are fresh before QR scanning begins.
-   * Called from ScannerPage on mount — fires in background, non-blocking for UI.
-   */
+
   async preWarmSessions(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user?.userId || 'user-default';
@@ -63,12 +60,12 @@ export const attendanceController = {
       // next attendance fetch reflects the new record immediately
       const targetIds = parsed.targetAccountIds || [];
       for (const id of targetIds) {
-        try { multiAccountService.clearAttendanceCache(id); } catch {}
+        try { multiAccountService.clearAttendanceCache(id); } catch { }
       }
       // Also clear primary account's cache regardless
       if (batchResult.results && batchResult.results.length > 0) {
         for (const r of batchResult.results) {
-          try { multiAccountService.clearAttendanceCache(r.accountId); } catch {}
+          try { multiAccountService.clearAttendanceCache(r.accountId); } catch { }
         }
       }
 
