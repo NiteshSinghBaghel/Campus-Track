@@ -16,8 +16,7 @@ import {
   AlertCircle,
   X,
   Check,
-  Star,
-  RefreshCw
+  Star
 } from 'lucide-react';
 
 export const ScannerPage: React.FC = () => {
@@ -28,7 +27,6 @@ export const ScannerPage: React.FC = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastScannedPayload, setLastScannedPayload] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<GroupAttendanceBatchResponse | null>(null);
-  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [torchOn, setTorchOn] = useState(false);
@@ -138,7 +136,7 @@ export const ScannerPage: React.FC = () => {
   };
 
   // Submit attendance for target accounts
-  const handleAttendanceSubmit = async (payloadToUse: string) => {
+  const handleAttendanceSubmit = (payloadToUse: string) => {
     if (!payloadToUse || !payloadToUse.trim()) {
       setErrorMsg('Please align camera over a valid attendance QR code.');
       return;
@@ -159,51 +157,45 @@ export const ScannerPage: React.FC = () => {
       return;
     }
 
+    setErrorMsg('');
+
+    // Play short success chime instantly on scan
     try {
-      setLoading(true);
-      setErrorMsg('');
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    } catch {}
 
-      // Play short success chime
-      try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.15);
-      } catch {}
-
-      const res = await api.submitOneScan({
-        qrPayload: payloadToUse,
-        targetAccountIds: targetIds,
-        challengeResponses: challengeAnswers
-      });
-
+    // Fire-and-forget: submit in background, show result when ready (no blocking spinner)
+    const frozenIds = [...targetIds];
+    api.submitOneScan({
+      qrPayload: payloadToUse,
+      targetAccountIds: frozenIds,
+      challengeResponses: challengeAnswers
+    }).then(res => {
       setBatchResult(res);
-
-      // Mark attendance cache as stale for all scanned accounts so AttendancePage
-      // immediately force-refreshes when user navigates there
+      // Bust attendance cache so AttendancePage force-refreshes when user navigates there
       try {
         localStorage.setItem('att_needs_refresh', 'true');
         localStorage.setItem('att_needs_refresh_ts', Date.now().toString());
-        // Clear per-account cache so stale data doesn't show
         for (const r of res.results || []) {
           localStorage.removeItem(`att_cache_${r.accountId}`);
           localStorage.removeItem(`campustrack_att_${r.accountId}`);
         }
-        for (const id of targetIds) {
+        for (const id of frozenIds) {
           localStorage.removeItem(`att_cache_${id}`);
           localStorage.removeItem(`campustrack_att_${id}`);
         }
       } catch {}
-    } catch (err) {
+    }).catch(err => {
       setErrorMsg((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   // Start Camera QR Scanner
@@ -393,16 +385,6 @@ export const ScannerPage: React.FC = () => {
             />
           )}
         </div>
-
-        {/* Loading Indicator while Submitting */}
-        {loading && (
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-950/90 border border-emerald-500/50 backdrop-blur-md shadow-2xl animate-pulse">
-            <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin" />
-            <span className="text-xs font-bold text-emerald-300">
-              Submitting attendance for {selectedAccounts.length} students...
-            </span>
-          </div>
-        )}
 
         {/* Error notification */}
         {errorMsg && (
