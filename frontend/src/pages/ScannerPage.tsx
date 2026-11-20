@@ -242,8 +242,13 @@ export const ScannerPage: React.FC = () => {
     try {
       setCameraError(null);
 
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        await html5QrCodeRef.current.stop();
+      if (html5QrCodeRef.current) {
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            await html5QrCodeRef.current.stop();
+          }
+          html5QrCodeRef.current.clear();
+        } catch {}
       }
 
       // Initialize with hardware acceleration and QR_CODE format only (10x faster)
@@ -255,17 +260,6 @@ export const ScannerPage: React.FC = () => {
         verbose: false
       });
       html5QrCodeRef.current = qrCode;
-
-      // High Definition + Autofocus camera constraints for crystal clear classroom scanning
-      const cameraConstraints: MediaTrackConstraints = {
-        facingMode: 'environment',
-        width: { min: 1024, ideal: 1920 },
-        height: { min: 720, ideal: 1080 },
-        advanced: [
-          { focusMode: 'continuous' } as any,
-          { exposureMode: 'continuous' } as any
-        ]
-      };
 
       const scanConfig = {
         fps: 15, // Optimal 15 fps: fast processing without CPU frame-dropping
@@ -280,15 +274,21 @@ export const ScannerPage: React.FC = () => {
 
       try {
         await qrCode.start(
-          cameraConstraints,
+          { facingMode: 'environment' },
           scanConfig,
           (decodedText) => onCodeDetected(decodedText),
           () => {}
         );
-      } catch (hdErr) {
-        // Fallback for older devices that reject advanced constraints
-        await qrCode.start(
-          { facingMode: 'environment' },
+      } catch (camErr) {
+        console.warn('Environment camera failed, attempting user camera fallback...', camErr);
+        // Fallback for laptops / desktop or single-camera devices without rear camera
+        const fallbackQrCode = new Html5Qrcode('qr-reader', {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          verbose: false
+        });
+        html5QrCodeRef.current = fallbackQrCode;
+        await fallbackQrCode.start(
+          { facingMode: 'user' },
           scanConfig,
           (decodedText) => onCodeDetected(decodedText),
           () => {}
@@ -321,8 +321,13 @@ export const ScannerPage: React.FC = () => {
     } catch (err: any) {
       console.error('Camera start error:', err);
       setIsScanning(false);
+      const isPermError =
+        err?.message?.includes('Permission') ||
+        err?.name === 'NotAllowedError' ||
+        err?.name === 'PermissionDeniedError';
+
       setCameraError(
-        err?.message?.includes('Permission') || err?.name === 'NotAllowedError'
+        isPermError
           ? 'Camera permission denied. Please allow camera access in browser settings.'
           : `Camera error: ${err?.message || 'Unable to start camera sensor'}`
       );
