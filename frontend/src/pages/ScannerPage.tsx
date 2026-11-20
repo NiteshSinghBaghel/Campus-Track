@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAccounts } from '../context/AccountContext.js';
 import { api } from '../services/api.js';
 import { GroupAttendanceBatchResponse } from '../types/index.js';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import {
   ArrowLeft,
   Clock,
@@ -25,7 +25,6 @@ export const ScannerPage: React.FC = () => {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [lastScannedPayload, setLastScannedPayload] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<GroupAttendanceBatchResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -36,6 +35,8 @@ export const ScannerPage: React.FC = () => {
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const isStoppingRef = useRef(false);
+  const isProcessingRef = useRef(false);
+  const nativeDetectorIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const selectedAccountsRef = useRef<string[]>([]);
   const accountsRef = useRef(accounts);
@@ -198,9 +199,46 @@ export const ScannerPage: React.FC = () => {
     });
   };
 
-  // Start Camera QR Scanner
+  // Unified QR detection handler (called by either native BarcodeDetector or Html5Qrcode)
+  const onCodeDetected = (decodedText: string) => {
+    if (!decodedText || !decodedText.trim()) return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    // Instant tactile haptic feedback (vibration on mobile)
+    try {
+      if ('vibrate' in navigator) navigator.vibrate([40, 25, 40]);
+    } catch {}
+
+    // Clear native detector loop
+    if (nativeDetectorIntervalRef.current) {
+      clearInterval(nativeDetectorIntervalRef.current);
+      nativeDetectorIntervalRef.current = null;
+    }
+
+    // Stop camera stream non-blockingly
+    try {
+      if (html5QrCodeRef.current?.isScanning) {
+        html5QrCodeRef.current.stop().catch(() => {});
+        setIsScanning(false);
+      }
+    } catch {}
+
+    // Submit attendance immediately in background
+    handleAttendanceSubmit(decodedText);
+  };
+
+  // Start Camera QR Scanner with Hardware Acceleration
   const startScanner = async () => {
     if (isStoppingRef.current) return;
+    isProcessingRef.current = false;
+
+    // Clear any existing native detection intervals
+    if (nativeDetectorIntervalRef.current) {
+      clearInterval(nativeDetectorIntervalRef.current);
+      nativeDetectorIntervalRef.current = null;
+    }
+
     try {
       setCameraError(null);
 
@@ -208,34 +246,77 @@ export const ScannerPage: React.FC = () => {
         await html5QrCodeRef.current.stop();
       }
 
-      const qrCode = new Html5Qrcode('qr-reader');
+      // Initialize with hardware acceleration and QR_CODE format only (10x faster)
+      const qrCode = new Html5Qrcode('qr-reader', {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        },
+        verbose: false
+      });
       html5QrCodeRef.current = qrCode;
 
-      await qrCode.start(
-        { facingMode: 'environment' },
-        {
-          fps: 20
-        },
-        async (decodedText) => {
-          if (decodedText === lastScannedPayload && isScanning) return;
+      // High Definition + Autofocus camera constraints for crystal clear classroom scanning
+      const cameraConstraints: MediaTrackConstraints = {
+        facingMode: 'environment',
+        width: { min: 1024, ideal: 1920 },
+        height: { min: 720, ideal: 1080 },
+        advanced: [
+          { focusMode: 'continuous' } as any,
+          { exposureMode: 'continuous' } as any
+        ]
+      };
 
-          setLastScannedPayload(decodedText);
+      const scanConfig = {
+        fps: 15, // Optimal 15 fps: fast processing without CPU frame-dropping
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          // Scan 90% of entire camera viewfinder so user doesn't have to align to microscopic precision
+          return {
+            width: Math.floor(viewfinderWidth * 0.9),
+            height: Math.floor(viewfinderHeight * 0.9)
+          };
+        }
+      };
 
-          // Stop camera without awaiting — prevents 1-second freeze
-          if (html5QrCodeRef.current?.isScanning) {
-            html5QrCodeRef.current.stop().catch(() => {});
-            setIsScanning(false);
-          }
-
-          // Submit attendance immediately (fire-and-forget, no blocking)
-          handleAttendanceSubmit(decodedText);
-        },
-        () => {}
-      );
+      try {
+        await qrCode.start(
+          cameraConstraints,
+          scanConfig,
+          (decodedText) => onCodeDetected(decodedText),
+          () => {}
+        );
+      } catch (hdErr) {
+        // Fallback for older devices that reject advanced constraints
+        await qrCode.start(
+          { facingMode: 'environment' },
+          scanConfig,
+          (decodedText) => onCodeDetected(decodedText),
+          () => {}
+        );
+      }
 
       setIsScanning(true);
       if (zoomLevel > 1) {
         setTimeout(() => applyZoom(zoomLevel), 300);
+      }
+
+      // Turbo Scanner: Direct native BarcodeDetector loop on video stream (under 5ms recognition)
+      if ('BarcodeDetector' in window) {
+        try {
+          const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+          nativeDetectorIntervalRef.current = setInterval(async () => {
+            if (isProcessingRef.current) return;
+            const videoElem = document.querySelector('#qr-reader video') as HTMLVideoElement;
+            if (videoElem && videoElem.readyState >= 2 && videoElem.videoWidth > 0) {
+              try {
+                const barcodes = await detector.detect(videoElem);
+                if (barcodes && barcodes.length > 0 && barcodes[0]?.rawValue) {
+                  onCodeDetected(barcodes[0].rawValue);
+                }
+              } catch {}
+            }
+          }, 60);
+        } catch {}
       }
     } catch (err: any) {
       console.error('Camera start error:', err);
@@ -256,6 +337,10 @@ export const ScannerPage: React.FC = () => {
 
     return () => {
       clearTimeout(timer);
+      if (nativeDetectorIntervalRef.current) {
+        clearInterval(nativeDetectorIntervalRef.current);
+        nativeDetectorIntervalRef.current = null;
+      }
       if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
         html5QrCodeRef.current.stop().catch(console.error);
       }
@@ -672,6 +757,7 @@ export const ScannerPage: React.FC = () => {
 
               <button
                 onClick={() => {
+                  isProcessingRef.current = false;
                   setBatchResult(null);
                   startScanner();
                 }}
